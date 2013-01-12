@@ -21,8 +21,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Counters {
 
     public final AtomicLong inputData = new AtomicLong();
-    public final AtomicLong duplicatedData = new AtomicLong();
-    public final AtomicLong compressedBlockSize = new AtomicLong();
+    public final AtomicLong compressedData = new AtomicLong();
+    public final AtomicLong compressedDedupData = new AtomicLong();
+    public final AtomicLong dedupData = new AtomicLong();
+    public final AtomicLong dedupCompressData = new AtomicLong();
 
     public final AtomicInteger collisions1 = new AtomicInteger();
     public final AtomicInteger collisions2 = new AtomicInteger();

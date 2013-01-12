@@ -20,41 +20,47 @@ import net.shipilev.dedup.streams.GZIPOutputStreamEx;
 import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.NullOutputStream;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.BlockingQueue;
 
-public class ProcessorWorker implements Runnable {
-    private final int blockSize;
-    private final InputStream stream;
-    private final HashStorage hashStorage;
-    private final Counters counters;
-    private boolean doingBlockCompress;
+public class ProcessTask implements Runnable {
+
     public static final String HASH_1 = "MD5";
     public static final String HASH_2 = "SHA-256";
 
-    public ProcessorWorker(int blockSize, InputStream stream, HashStorage hashStorage, Counters counters, boolean doingBlockCompress) {
+    private final int blockSize;
+    private final File file;
+    private final HashStorage compressedHashes;
+    private final HashStorage uncompressedHashes;
+    private final Counters counters;
+
+    public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters) {
         this.blockSize = blockSize;
-        this.stream = stream;
-        this.hashStorage = hashStorage;
+        this.file = file;
+        this.compressedHashes = compressedHashes;
+        this.uncompressedHashes = uncompressedHashes;
         this.counters = counters;
-        this.doingBlockCompress = doingBlockCompress;
     }
 
     @Override
     public void run() {
-        try {
+        try (
+            BufferedInputStream reader = new BufferedInputStream(new FileInputStream(file))
+        ) {
             byte[] block = new byte[blockSize];
 
             MessageDigest mdHash1 = MessageDigest.getInstance(HASH_1);
             MessageDigest mdHash2 = MessageDigest.getInstance(HASH_2);
 
-            BufferedInputStream reader = new BufferedInputStream(stream);
             int read;
             while ((read = reader.read(block)) != -1) {
+
+                counters.inputData.addAndGet(read);
+
                 mdHash1.reset();
                 mdHash2.reset();
 
@@ -72,27 +78,24 @@ public class ProcessorWorker implements Runnable {
                  * Otherwise, we can get "false" collision when several threads try to add
                  * the same pair of checksums.
                  */
-                synchronized (hashStorage) {
-                    unique1 = hashStorage.add(checksum1);
-                    unique2 = hashStorage.add(checksum2);
+                synchronized (uncompressedHashes) {
+                    unique1 = uncompressedHashes.add(checksum1);
+                    unique2 = uncompressedHashes.add(checksum2);
                 }
 
-                if (!unique1 || !unique2) {
-                    counters.duplicatedData.addAndGet(read);
-                } else {
-                    if (doingBlockCompress) {
-                        CountingOutputStream blockCompressCounter = new CountingOutputStream(new NullOutputStream());
-                        GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(blockCompressCounter);
-                        blockCompress.write(block);
-                        blockCompress.finish();
-                        blockCompress.flush();
-                        blockCompress.close();
+                if (unique1 && unique2) {
+                    counters.dedupData.addAndGet(read);
 
-                        counters.compressedBlockSize.addAndGet(blockCompressCounter.getCount());
-                    }
+                    // block compression
+                    CountingOutputStream blockCompressCounter = new CountingOutputStream(new NullOutputStream());
+                    GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(blockCompressCounter);
+                    blockCompress.write(block);
+                    blockCompress.finish();
+                    blockCompress.flush();
+                    blockCompress.close();
+
+                    counters.dedupCompressData.addAndGet(blockCompressCounter.getCount());
                 }
-
-                counters.inputData.addAndGet(read);
 
                 if (unique1 && !unique2) {
                     System.err.println("Whoa! Collision on " + HASH_1 + "\n"

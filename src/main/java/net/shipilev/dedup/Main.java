@@ -22,19 +22,19 @@ import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.storage.InMemoryHashStorage;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestException;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 public class Main {
 
-    private static final int QUEUE_SIZE = 10 * 1000 * 1000;
+    private static final int QUEUE_SIZE = 10 * 1000;
     private static final long POLL_INTERVAL_SEC = 1;
 
     private static String path;
@@ -44,15 +44,13 @@ public class Main {
     private HashStorage uncompressedHashes;
     private HashStorage compressedHashes;
 
-    private BlockingQueue<File> processQueue = new ArrayBlockingQueue<File>(QUEUE_SIZE);
-
-    private Counters uncompressedCounters = new Counters();
-    private Counters compressedCounters = new Counters();
+    private Counters counters = new Counters();
 
     private int printCounter;
     private long lastSize;
+    private BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
 
-    public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException {
+    public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException, IOException {
 
         path = ".";
         if (args.length > 0) {
@@ -95,7 +93,7 @@ public class Main {
         }
     }
 
-    private void run() throws InterruptedException {
+    private void run() throws InterruptedException, IOException {
         createStorages(storage);
 
         System.err.println("Using " + blockSize + "-byte blocks");
@@ -103,25 +101,41 @@ public class Main {
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(new PrintDetails(), 1, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
 
-        Thread enumerator = new Thread(new EnumeratorWorker(new File(path), processQueue));
-        enumerator.start();
 
-        List<ReaderWorker> workers = new ArrayList<ReaderWorker>();
-        for (int c = 0; c < Runtime.getRuntime().availableProcessors() / 2 + 1; c++) {
-            ReaderWorker worker = new ReaderWorker(blockSize, processQueue, compressedHashes, uncompressedHashes, compressedCounters, uncompressedCounters);
-            workers.add(worker);
-            worker.start();
-        }
+        final ThreadPoolExecutor tpe = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().availableProcessors(), 1, TimeUnit.DAYS, abq);
+        tpe.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 
-        enumerator.join();
+        Files.walkFileTree(new File(path).toPath(), new FileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                return FileVisitResult.CONTINUE;
+            }
 
-        for (ReaderWorker worker : workers) {
-            worker.finish();
-        }
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                if (!attrs.isSymbolicLink()) {
+                    tpe.submit(new ProcessTask(blockSize, file.toFile(), uncompressedHashes, compressedHashes, counters));
+                }
+                return FileVisitResult.CONTINUE;
+            }
 
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                return FileVisitResult.CONTINUE;
+            }
+        });
+
+        tpe.shutdown();
         executor.shutdownNow();
 
-        printProgress(true);
+        while (!tpe.awaitTermination(1, TimeUnit.SECONDS)) {
+            printProgress(true);
+        }
     }
 
 
@@ -131,45 +145,46 @@ public class Main {
             return;
         }
 
-        System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in queue\n",
-                (uncompressedCounters.inputData.get() - lastSize) * 1.0 / 1024 / POLL_INTERVAL_SEC,
-                (uncompressedCounters.inputData.get() - lastSize) * 3600.0 / 1024 / 1024 / 1024 / POLL_INTERVAL_SEC,
-                processQueue.size(),
-                QUEUE_SIZE);
+        System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in read queue\n",
+                (counters.inputData.get() - lastSize) * 1.0 / 1024 / POLL_INTERVAL_SEC,
+                (counters.inputData.get() - lastSize) * 3600.0 / 1024 / 1024 / 1024 / POLL_INTERVAL_SEC,
+                abq.size(),
+                QUEUE_SIZE
+        );
 
-        lastSize = uncompressedCounters.inputData.get();
+        lastSize = counters.inputData.get();
 
         System.err.printf("COMPRESS:       %5.2fx increase. %d Kb --(compress)--> %d Kb\n",
-                uncompressedCounters.inputData.get() * 1.0 / compressedCounters.inputData.get(),
-                uncompressedCounters.inputData.get() / 1024,
-                compressedCounters.inputData.get() / 1024
+                counters.inputData.get() * 1.0 / counters.compressedData.get(),
+                counters.inputData.get() / 1024,
+                counters.compressedData.get() / 1024
         );
 
         System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(compress)--> %d Kb ------(dedup)-------> %d Kb\n",
-                uncompressedCounters.inputData.get() * 1.0 / (compressedCounters.inputData.get() - compressedCounters.duplicatedData.get()),
-                uncompressedCounters.inputData.get() / 1024,
-                compressedCounters.inputData.get() / 1024,
-                (compressedCounters.inputData.get() - compressedCounters.duplicatedData.get()) / 1024
+                counters.inputData.get() * 1.0 / (counters.compressedDedupData.get()),
+                counters.inputData.get() / 1024,
+                counters.compressedData.get() / 1024,
+                counters.compressedDedupData.get() / 1024
         );
 
         System.err.printf("DEDUP:          %5.2fx increase, %d Kb ----(dedup)---> %d Kb\n",
-                uncompressedCounters.inputData.get() * 1.0 / (uncompressedCounters.inputData.get() - uncompressedCounters.duplicatedData.get()),
-                uncompressedCounters.inputData.get() / 1024,
-                (uncompressedCounters.inputData.get() - uncompressedCounters.duplicatedData.get()) / 1024
+                counters.inputData.get() * 1.0 / counters.dedupData.get(),
+                counters.inputData.get() / 1024,
+                counters.dedupData.get() / 1024
         );
 
         System.err.printf("DEDUP+COMPRESS: %5.2fx increase. %d Kb ----(dedup)---> %d Kb --(block-compress)--> %d Kb\n",
-                uncompressedCounters.inputData.get() * 1.0 / uncompressedCounters.compressedBlockSize.get(),
-                uncompressedCounters.inputData.get() / 1024,
-                (uncompressedCounters.inputData.get() - uncompressedCounters.duplicatedData.get()) / 1024,
-                uncompressedCounters.compressedBlockSize.get() / 1024
+                counters.inputData.get() * 1.0 / counters.dedupCompressData.get(),
+                counters.inputData.get() / 1024,
+                counters.dedupData.get() / 1024,
+                counters.dedupCompressData.get() / 1024
         );
 
         System.err.printf("detected collisions: %d on %s, %d on %s\n",
-                uncompressedCounters.collisions1.get() + compressedCounters.collisions1.get(),
-                ProcessorWorker.HASH_1,
-                uncompressedCounters.collisions2.get() + compressedCounters.collisions2.get(),
-                ProcessorWorker.HASH_2
+                counters.collisions1.get() + counters.collisions1.get(),
+                ProcessTask.HASH_1,
+                counters.collisions2.get() + counters.collisions2.get(),
+                ProcessTask.HASH_2
         );
 
         System.err.println();
