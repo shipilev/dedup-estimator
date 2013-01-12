@@ -1,0 +1,38 @@
+DE-DUPLICATION ESTIMATOR
+
+This project is the pre-migration aid for compressed/de-duplicated
+filesystems. It helps to know in advance the possible savings
+having de-duplication and/or compression enabled.
+
+The tools walks the real filesystem and emulates per-block compression
+and de-duplication, printing out the compressibility info. This can
+also be uses as the information entropy estimate.
+
+Quick-start:
+--------------------------------------------------------------------
+
+ $ mvn clean install
+ $ java -jar target/dedup.jar <path>
+
+Settings to play with:
+--------------------------------------------------------------------
+
+ -DblockSize = # (default is 4096)
+    Target filesystem block size.
+
+ -Dstorage = # (default is "inmemory")
+    Hash storage implementation. Bundled implementations:
+      - inmemory: uses ConcurrentHashMap to store on heap
+      - berkeley: uses on-disk BerkeleyDB
+      - h2:       uses on-disk H2
+      - derby:    uses on-disk Apache Derby
+
+Caveats:
+--------------------------------------------------------------------
+
+* Default mode uses in-memory hash storage, which can OOM on large
+  enough datasets. Consider using off-heap storage for large FSes.
+  The rule of thumb: 1G of heap space can take up 2M+ hashes,
+  which translates to ~10G dataset size with 4K blocks.
+
+
