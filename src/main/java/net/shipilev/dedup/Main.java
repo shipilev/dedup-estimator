@@ -73,20 +73,25 @@ public class Main {
     }
 
     private void createStorages(String storage) {
-        if (storage.equalsIgnoreCase("inmemory")) {
-            compressedHashes = new InMemoryHashStorage();
-            uncompressedHashes = new InMemoryHashStorage();
-        } else if (storage.equalsIgnoreCase("berkeley")) {
-            compressedHashes = new BerkeleyHashStorage("hashes-compressed");
-            uncompressedHashes = new BerkeleyHashStorage("hashes-uncompressed");
-        } else if (storage.equalsIgnoreCase("h2")) {
-            compressedHashes = new H2HashStorage("hashes-compressed");
-            uncompressedHashes = new H2HashStorage("hashes-uncompressed");
-        } else if (storage.equalsIgnoreCase("derby")) {
-            compressedHashes = new DerbyHashStorage("hashes-compressed");
-            uncompressedHashes = new DerbyHashStorage("hashes-uncompressed");
-        } else {
-            throw new IllegalStateException("Unknown storage " + storage);
+        switch (storage) {
+            case "inmemory":
+                compressedHashes = new InMemoryHashStorage();
+                uncompressedHashes = new InMemoryHashStorage();
+                break;
+            case "berkeley":
+                compressedHashes = new BerkeleyHashStorage("hashes-compressed");
+                uncompressedHashes = new BerkeleyHashStorage("hashes-uncompressed");
+                break;
+            case "h2":
+                compressedHashes = new H2HashStorage("hashes-compressed");
+                uncompressedHashes = new H2HashStorage("hashes-uncompressed");
+                break;
+            case "derby":
+                compressedHashes = new DerbyHashStorage("hashes-compressed");
+                uncompressedHashes = new DerbyHashStorage("hashes-uncompressed");
+                break;
+            default:
+                throw new IllegalStateException("Unknown storage " + storage);
         }
     }
 
@@ -122,7 +127,7 @@ public class Main {
 
     private void printProgress(boolean proceedAlways) {
         printCounter++;
-        if (!proceedAlways && printCounter % 10000 != 0) {
+        if (!proceedAlways && (printCounter & (16384 - 1)) == 0) {
             return;
         }
 
@@ -140,7 +145,7 @@ public class Main {
                 compressedCounters.inputData.get() / 1024
         );
 
-        System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(compress)--> %d Kb --(dedup)--> %d Kb\n",
+        System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(compress)--> %d Kb ------(dedup)-------> %d Kb\n",
                 uncompressedCounters.inputData.get() * 1.0 / (compressedCounters.inputData.get() - compressedCounters.duplicatedData.get()),
                 uncompressedCounters.inputData.get() / 1024,
                 compressedCounters.inputData.get() / 1024,
