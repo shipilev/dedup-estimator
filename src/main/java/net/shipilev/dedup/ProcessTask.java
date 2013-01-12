@@ -37,13 +37,15 @@ public class ProcessTask implements Runnable {
     private final HashStorage compressedHashes;
     private final HashStorage uncompressedHashes;
     private final Counters counters;
+    private boolean detectCollisions;
 
-    public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters) {
+    public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters, boolean detectCollisions) {
         this.blockSize = blockSize;
         this.file = file;
         this.compressedHashes = compressedHashes;
         this.uncompressedHashes = uncompressedHashes;
         this.counters = counters;
+        this.detectCollisions = detectCollisions;
     }
 
     @Override
@@ -110,20 +112,25 @@ public class ProcessTask implements Runnable {
          * Otherwise, we can get "false" collision when several threads try to add
          * the same pair of checksums.
          */
-        synchronized (storage) {
+        if (detectCollisions) {
+            synchronized (storage) {
+                unique1 = storage.add(checksum1);
+                unique2 = storage.add(checksum2);
+            }
+
+            if (unique1 && !unique2) {
+                System.err.println("Whoa! Collision on " + HASH_1 + "\n"
+                        + "block = " + Arrays.toString(block));
+                counters.collisions1.incrementAndGet();
+            }
+            if (!unique1 && unique2) {
+                System.err.println("Whoa! Collision on " + HASH_2 + "\n"
+                        + "block = " + Arrays.toString(block));
+                counters.collisions2.incrementAndGet();
+            }
+        } else {
             unique1 = storage.add(checksum1);
             unique2 = storage.add(checksum2);
-        }
-
-        if (unique1 && !unique2) {
-            System.err.println("Whoa! Collision on " + HASH_1 + "\n"
-                    + "block = " + Arrays.toString(block));
-            counters.collisions1.incrementAndGet();
-        }
-        if (!unique1 && unique2) {
-            System.err.println("Whoa! Collision on " + HASH_2 + "\n"
-                    + "block = " + Arrays.toString(block));
-            counters.collisions2.incrementAndGet();
         }
 
         return unique1 && unique2;

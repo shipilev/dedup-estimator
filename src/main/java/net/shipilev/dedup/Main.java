@@ -34,8 +34,9 @@ import java.util.concurrent.*;
 
 public class Main {
 
-    private static final int QUEUE_SIZE = 10 * 1000;
+    private static final int QUEUE_SIZE = 1000 * 1000;
     private static final long POLL_INTERVAL_SEC = 1;
+    private static final boolean DETECT_COLLISIONS = Boolean.getBoolean("collisions");
 
     private static String path;
     private static String storage;
@@ -114,7 +115,7 @@ public class Main {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!attrs.isSymbolicLink()) {
-                    tpe.submit(new ProcessTask(blockSize, file.toFile(), uncompressedHashes, compressedHashes, counters));
+                    tpe.submit(new ProcessTask(blockSize, file.toFile(), uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -154,38 +155,40 @@ public class Main {
 
         lastSize = counters.inputData.get();
 
-        System.err.printf("COMPRESS:       %5.2fx increase. %d Kb --(compress)--> %d Kb\n",
+        System.err.printf("COMPRESS:       %5.2fx increase. %d Kb --(block-compress)--> %d Kb\n",
                 counters.inputData.get() * 1.0 / counters.compressedData.get(),
                 counters.inputData.get() / 1024,
                 counters.compressedData.get() / 1024
         );
 
-        System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(compress)--> %d Kb ------(dedup)-------> %d Kb\n",
+        System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(block-compress)--> %d Kb ------(dedup)-------> %d Kb\n",
                 counters.inputData.get() * 1.0 / (counters.compressedDedupData.get()),
                 counters.inputData.get() / 1024,
                 counters.compressedData.get() / 1024,
                 counters.compressedDedupData.get() / 1024
         );
 
-        System.err.printf("DEDUP:          %5.2fx increase, %d Kb ----(dedup)---> %d Kb\n",
+        System.err.printf("DEDUP:          %5.2fx increase, %d Kb ------(dedup)-------> %d Kb\n",
                 counters.inputData.get() * 1.0 / counters.dedupData.get(),
                 counters.inputData.get() / 1024,
                 counters.dedupData.get() / 1024
         );
 
-        System.err.printf("DEDUP+COMPRESS: %5.2fx increase. %d Kb ----(dedup)---> %d Kb --(block-compress)--> %d Kb\n",
+        System.err.printf("DEDUP+COMPRESS: %5.2fx increase. %d Kb ------(dedup)-------> %d Kb --(block-compress)--> %d Kb\n",
                 counters.inputData.get() * 1.0 / counters.dedupCompressData.get(),
                 counters.inputData.get() / 1024,
                 counters.dedupData.get() / 1024,
                 counters.dedupCompressData.get() / 1024
         );
 
-        System.err.printf("detected collisions: %d on %s, %d on %s\n",
-                counters.collisions1.get() + counters.collisions1.get(),
-                ProcessTask.HASH_1,
-                counters.collisions2.get() + counters.collisions2.get(),
-                ProcessTask.HASH_2
-        );
+        if (DETECT_COLLISIONS) {
+            System.err.printf("detected collisions: %d on %s, %d on %s\n",
+                    counters.collisions1.get() + counters.collisions1.get(),
+                    ProcessTask.HASH_1,
+                    counters.collisions2.get() + counters.collisions2.get(),
+                    ProcessTask.HASH_2
+            );
+        }
 
         System.err.println();
     }
