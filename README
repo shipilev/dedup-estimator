@@ -17,6 +17,9 @@ Quick-start:
 Settings to play with:
 --------------------------------------------------------------------
 
+ -Dthreads = # (default is #numCPU)
+    Number of processing threads.
+
  -DblockSize = # (default is 4096)
     Target filesystem block size.
 

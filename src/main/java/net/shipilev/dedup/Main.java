@@ -37,6 +37,7 @@ public class Main {
     private static final String STORAGE = System.getProperty("storage", "inmemory");
     private static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
     private static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
+    private static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors());
     private static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
     private static final boolean DETECT_COLLISIONS = Boolean.getBoolean("collisions");
 
@@ -84,13 +85,14 @@ public class Main {
     private void run(String path) throws InterruptedException, IOException {
         createStorages(STORAGE);
 
+        System.err.println("Running with " + THREADS + " threads");
         System.err.println("Using " + BLOCK_SIZE + "-byte blocks");
 
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(new PrintDetails(), 1, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
 
 
-        final ThreadPoolExecutor tpe = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(), Runtime.getRuntime().availableProcessors(), 1, TimeUnit.DAYS, abq);
+        final ThreadPoolExecutor tpe = new ThreadPoolExecutor(THREADS, THREADS, 1, TimeUnit.DAYS, abq);
         tpe.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 
         Files.walkFileTree(new File(path).toPath(), new FileVisitor<Path>() {
