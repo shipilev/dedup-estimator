@@ -15,11 +15,7 @@
  */
 package net.shipilev.dedup;
 
-import net.shipilev.dedup.storage.BerkeleyHashStorage;
-import net.shipilev.dedup.storage.DerbyHashStorage;
-import net.shipilev.dedup.storage.H2HashStorage;
-import net.shipilev.dedup.storage.HashStorage;
-import net.shipilev.dedup.storage.InMemoryHashStorage;
+import net.shipilev.dedup.storage.*;
 
 import java.io.File;
 import java.io.IOException;

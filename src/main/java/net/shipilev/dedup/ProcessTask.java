@@ -15,17 +15,13 @@
  */
 package net.shipilev.dedup;
 
-import net.shipilev.dedup.streams.CountingOutputStream;
-import net.shipilev.dedup.streams.GZIPOutputStreamEx;
 import net.shipilev.dedup.storage.HashStorage;
-import net.shipilev.dedup.streams.NullOutputStream;
+import net.shipilev.dedup.streams.GZIPOutputStreamEx;
 
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.BlockingQueue;
 
 public class ProcessTask implements Runnable {
 
