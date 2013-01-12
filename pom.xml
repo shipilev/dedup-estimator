@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>net.shipilev.dedup</groupId>
     <version>1.0</version>
-    <name>Deduplication Estimation</name>
+    <name>De-duplication Estimation</name>
     <artifactId>dedup</artifactId>
     <packaging>jar</packaging>
     <build>
@@ -11,6 +11,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>2.5.1</version>
                 <configuration>
                     <source>1.7</source>
                     <target>1.7</target>
@@ -49,7 +50,6 @@
             <groupId>c3p0</groupId>
             <artifactId>c3p0</artifactId>
             <version>0.9.1.2</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>berkeleydb</groupId>
@@ -59,14 +59,12 @@
         <dependency>
             <groupId>org.apache.derby</groupId>
             <artifactId>derby</artifactId>
-            <version>10.6.1.0</version>
-            <scope>provided</scope>
+            <version>10.9.1.0</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <version>1.2.138</version>
-            <scope>provided</scope>
+            <version>1.3.170</version>
         </dependency>
     </dependencies>
 </project>
