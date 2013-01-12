@@ -34,41 +34,28 @@ import java.util.concurrent.*;
 
 public class Main {
 
-    private static final int QUEUE_SIZE = 1000 * 1000;
-    private static final long POLL_INTERVAL_SEC = 1;
+    private static final String STORAGE = System.getProperty("storage", "inmemory");
+    private static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
+    private static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
+    private static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
     private static final boolean DETECT_COLLISIONS = Boolean.getBoolean("collisions");
 
-    private static String path;
-    private static String storage;
-    private static Integer blockSize;
+    private final BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
+    private final Counters counters = new Counters();
 
     private HashStorage uncompressedHashes;
     private HashStorage compressedHashes;
 
-    private Counters counters = new Counters();
-
     private int printCounter;
     private long lastSize;
-    private BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
 
     public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException, IOException {
-
-        path = ".";
+        String path = ".";
         if (args.length > 0) {
             path = args[0];
         }
 
-        storage = "inmemory";
-        if (args.length > 1) {
-            storage = args[1];
-        }
-
-        blockSize = 4096;
-        if (args.length > 2) {
-            blockSize = Integer.valueOf(args[2]);
-        }
-
-        new Main().run();
+        new Main().run(path);
     }
 
     private void createStorages(String storage) {
@@ -94,10 +81,10 @@ public class Main {
         }
     }
 
-    private void run() throws InterruptedException, IOException {
-        createStorages(storage);
+    private void run(String path) throws InterruptedException, IOException {
+        createStorages(STORAGE);
 
-        System.err.println("Using " + blockSize + "-byte blocks");
+        System.err.println("Using " + BLOCK_SIZE + "-byte blocks");
 
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(new PrintDetails(), 1, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
@@ -115,7 +102,7 @@ public class Main {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!attrs.isSymbolicLink()) {
-                    tpe.submit(new ProcessTask(blockSize, file.toFile(), uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
+                    tpe.submit(new ProcessTask(BLOCK_SIZE, file.toFile(), uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
                 }
                 return FileVisitResult.CONTINUE;
             }
