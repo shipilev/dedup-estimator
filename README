@@ -1,12 +1,13 @@
 DE-DUPLICATION ESTIMATOR
 
 This project is the pre-migration aid for compressed/de-duplicated
-filesystems. It helps to know in advance the possible savings
-having de-duplication and/or compression enabled.
+filesystems. It helps to know the possible savings having de-duplication
+and/or compression enabled on the filesystem before actually committing
+to this decision.
 
 The tools walks the real filesystem and emulates per-block compression
 and de-duplication, printing out the compressibility info. This can
-also be uses as the information entropy estimate.
+also be used as the information entropy estimate.
 
 Quick-start:
 --------------------------------------------------------------------
