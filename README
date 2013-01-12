@@ -37,5 +37,3 @@ Caveats:
   enough datasets. Consider using off-heap storage for large FSes.
   The rule of thumb: 1G of heap space can take up 2M+ hashes,
   which translates to ~10G dataset size with 4K blocks.
-
-
