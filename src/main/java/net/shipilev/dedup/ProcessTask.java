@@ -53,64 +53,80 @@ public class ProcessTask implements Runnable {
         ) {
             byte[] block = new byte[blockSize];
 
-            MessageDigest mdHash1 = MessageDigest.getInstance(HASH_1);
-            MessageDigest mdHash2 = MessageDigest.getInstance(HASH_2);
+            MessageDigest uncompressedMD1 = MessageDigest.getInstance(HASH_1);
+            MessageDigest uncompressedMD2 = MessageDigest.getInstance(HASH_2);
+
+            MessageDigest compressedMD1 = MessageDigest.getInstance(HASH_1);
+            MessageDigest compressedMD2 = MessageDigest.getInstance(HASH_2);
 
             int read;
             while ((read = reader.read(block)) != -1) {
 
                 counters.inputData.addAndGet(read);
 
-                mdHash1.reset();
-                mdHash2.reset();
+                byte[] compressedBlock = compressBlock(block, read);
+                counters.compressedData.addAndGet(compressedBlock.length);
 
-                mdHash1.update(block, 0, read);
-                mdHash2.update(block, 0, read);
-
-                byte[] checksum1 = mdHash1.digest();
-                byte[] checksum2 = mdHash2.digest();
-
-                boolean unique1;
-                boolean unique2;
-
-                /**
-                 * Alas, need to preserve atomicity on this paired operation.
-                 * Otherwise, we can get "false" collision when several threads try to add
-                 * the same pair of checksums.
-                 */
-                synchronized (uncompressedHashes) {
-                    unique1 = uncompressedHashes.add(checksum1);
-                    unique2 = uncompressedHashes.add(checksum2);
-                }
-
-                if (unique1 && unique2) {
+                if (consume(block, read, uncompressedMD1, uncompressedMD2, uncompressedHashes)) {
                     counters.dedupData.addAndGet(read);
-
-                    // block compression
-                    CountingOutputStream blockCompressCounter = new CountingOutputStream(new NullOutputStream());
-                    GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(blockCompressCounter);
-                    blockCompress.write(block);
-                    blockCompress.finish();
-                    blockCompress.flush();
-                    blockCompress.close();
-
-                    counters.dedupCompressData.addAndGet(blockCompressCounter.getCount());
+                    counters.dedupCompressData.addAndGet(compressedBlock.length);
                 }
 
-                if (unique1 && !unique2) {
-                    System.err.println("Whoa! Collision on " + HASH_1 + "\n"
-                            + "block = " + Arrays.toString(block));
-                    counters.collisions1.incrementAndGet();
+                if (consume(compressedBlock, compressedBlock.length, compressedMD1, compressedMD2, compressedHashes)) {
+                    counters.compressedDedupData.addAndGet(compressedBlock.length);
                 }
-                if (!unique1 && unique2) {
-                    System.err.println("Whoa! Collision on " + HASH_2 + "\n"
-                            + "block = " + Arrays.toString(block));
-                    counters.collisions2.incrementAndGet();
-                }
+
             }
         } catch (IOException | NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
+    }
+
+    private byte[] compressBlock(byte[] block, int size) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(size);
+        GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(baos);
+        blockCompress.write(block);
+        blockCompress.finish();
+        blockCompress.flush();
+        blockCompress.close();
+        return baos.toByteArray();
+    }
+
+    private boolean consume(byte[] block, int count, MessageDigest mdHash1, MessageDigest mdHash2, HashStorage storage) {
+        mdHash1.reset();
+        mdHash2.reset();
+
+        mdHash1.update(block, 0, count);
+        mdHash2.update(block, 0, count);
+
+        byte[] checksum1 = mdHash1.digest();
+        byte[] checksum2 = mdHash2.digest();
+
+        boolean unique1;
+        boolean unique2;
+
+        /**
+         * Alas, need to preserve atomicity on this paired operation.
+         * Otherwise, we can get "false" collision when several threads try to add
+         * the same pair of checksums.
+         */
+        synchronized (storage) {
+            unique1 = storage.add(checksum1);
+            unique2 = storage.add(checksum2);
+        }
+
+        if (unique1 && !unique2) {
+            System.err.println("Whoa! Collision on " + HASH_1 + "\n"
+                    + "block = " + Arrays.toString(block));
+            counters.collisions1.incrementAndGet();
+        }
+        if (!unique1 && unique2) {
+            System.err.println("Whoa! Collision on " + HASH_2 + "\n"
+                    + "block = " + Arrays.toString(block));
+            counters.collisions2.incrementAndGet();
+        }
+
+        return unique1 && unique2;
     }
 
 
