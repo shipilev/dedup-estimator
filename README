@@ -14,6 +14,15 @@ Quick-start:
  $ mvn clean install
  $ java -jar target/dedup.jar <path>
 
+Sample output:
+--------------------------------------------------------------------
+
+Running at 9553.46 Kbps (32.80 Gb/hour), 0/10000 files in the read queue
+COMPRESS:        1.86x, 4456426 Kb (...) ---> 2396159 Kb
+COMPRESS+DEDUP:  1.91x, 4456426 Kb (...) ---> 2335911 Kb
+DEDUP:           1.03x, 4456426 Kb (...) ---> 4306120 Kb
+DEDUP+COMPRESS:  1.91x, 4456426 Kb (...) ---> 2335692 Kb
+
 Settings to play with:
 --------------------------------------------------------------------
 
