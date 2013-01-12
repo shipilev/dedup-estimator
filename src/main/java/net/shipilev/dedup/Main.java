@@ -137,6 +137,8 @@ public class Main {
         while (!tpe.awaitTermination(1, TimeUnit.SECONDS)) {
             printProgress(true);
         }
+
+        printProgress(true);
     }
 
 
@@ -146,39 +148,45 @@ public class Main {
             return;
         }
 
-        System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in read queue\n",
-                (counters.inputData.get() - lastSize) * 1.0 / 1024 / POLL_INTERVAL_SEC,
-                (counters.inputData.get() - lastSize) * 3600.0 / 1024 / 1024 / 1024 / POLL_INTERVAL_SEC,
+        long inputData = counters.inputData.get();
+        long compressedData = counters.compressedData.get();
+        long compressedDedupData = counters.compressedDedupData.get();
+        long dedupData = counters.dedupData.get();
+        long dedupCompressData = counters.dedupCompressData.get();
+
+        System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in the read queue\n",
+                (inputData - lastSize) * 1.0 / 1024 / POLL_INTERVAL_SEC,
+                (inputData - lastSize) * 3600.0 / 1024 / 1024 / 1024 / POLL_INTERVAL_SEC,
                 abq.size(),
                 QUEUE_SIZE
         );
 
-        lastSize = counters.inputData.get();
+        lastSize = inputData;
 
-        System.err.printf("COMPRESS:       %5.2fx increase. %d Kb --(block-compress)--> %d Kb\n",
-                counters.inputData.get() * 1.0 / counters.compressedData.get(),
-                counters.inputData.get() / 1024,
-                counters.compressedData.get() / 1024
+        System.err.printf("COMPRESS:       %5.2fx increase, %d Kb --(block-compress)--> %d Kb\n",
+                inputData * 1.0 / compressedData,
+                inputData / 1024,
+                compressedData / 1024
         );
 
-        System.err.printf("COMPRESS+DEDUP: %5.2fx increase. %d Kb --(block-compress)--> %d Kb ------(dedup)-------> %d Kb\n",
-                counters.inputData.get() * 1.0 / (counters.compressedDedupData.get()),
-                counters.inputData.get() / 1024,
-                counters.compressedData.get() / 1024,
-                counters.compressedDedupData.get() / 1024
+        System.err.printf("COMPRESS+DEDUP: %5.2fx increase, %d Kb --(block-compress)--> %d Kb ------(dedup)-------> %d Kb\n",
+                inputData * 1.0 / compressedDedupData,
+                inputData / 1024,
+                compressedData / 1024,
+                compressedDedupData / 1024
         );
 
         System.err.printf("DEDUP:          %5.2fx increase, %d Kb ------(dedup)-------> %d Kb\n",
-                counters.inputData.get() * 1.0 / counters.dedupData.get(),
-                counters.inputData.get() / 1024,
-                counters.dedupData.get() / 1024
+                inputData * 1.0 / dedupData,
+                inputData / 1024,
+                dedupData / 1024
         );
 
-        System.err.printf("DEDUP+COMPRESS: %5.2fx increase. %d Kb ------(dedup)-------> %d Kb --(block-compress)--> %d Kb\n",
-                counters.inputData.get() * 1.0 / counters.dedupCompressData.get(),
-                counters.inputData.get() / 1024,
-                counters.dedupData.get() / 1024,
-                counters.dedupCompressData.get() / 1024
+        System.err.printf("DEDUP+COMPRESS: %5.2fx increase, %d Kb ------(dedup)-------> %d Kb --(block-compress)--> %d Kb\n",
+                inputData * 1.0 / dedupCompressData,
+                inputData / 1024,
+                dedupData / 1024,
+                dedupCompressData / 1024
         );
 
         if (DETECT_COLLISIONS) {
