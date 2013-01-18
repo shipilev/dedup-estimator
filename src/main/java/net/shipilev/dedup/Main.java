@@ -123,6 +123,8 @@ public class Main {
             printProgress(true);
         }
 
+        System.err.println("FINAL RESULT:");
+        System.err.println(path + ", using " + BLOCK_SIZE + "-byte blocks");
         printProgress(true);
     }
 
