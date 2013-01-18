@@ -12,8 +12,12 @@ also be used as the information entropy estimate.
 Quick-start:
 --------------------------------------------------------------------
 
+Build for source:
  $ mvn clean install
  $ java -jar target/dedup.jar <path>
+
+Binary builds are available here:
+ http://shipilev.net/builds/dedup-estimator/
 
 Sample output:
 --------------------------------------------------------------------
