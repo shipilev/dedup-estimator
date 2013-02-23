@@ -33,7 +33,7 @@ public class Main {
     private static final String STORAGE = System.getProperty("storage", "inmemory");
     private static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
     private static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
-    private static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors());
+    private static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() + 1);
     private static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
     private static final boolean DETECT_COLLISIONS = Boolean.getBoolean("collisions");
 
@@ -44,7 +44,7 @@ public class Main {
     private HashStorage compressedHashes;
 
     private int printCounter;
-    private long lastSize;
+    private long firstPoll;
 
     public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException, IOException {
         String path = ".";
@@ -141,35 +141,39 @@ public class Main {
         long dedupData = counters.dedupData.get();
         long dedupCompressData = counters.dedupCompressData.get();
 
+        if (firstPoll == 0) {
+            firstPoll = System.nanoTime();
+            return;
+        }
+
         System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in the read queue\n",
-                (inputData - lastSize) * 1.0 / 1024 / POLL_INTERVAL_SEC,
-                (inputData - lastSize) * 3600.0 / 1024 / 1024 / 1024 / POLL_INTERVAL_SEC,
+                (inputData * 1.0 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
+                (inputData * 3600.0 / 1024 / 1024 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 abq.size(),
                 QUEUE_SIZE
         );
 
-        lastSize = inputData;
 
-        System.err.printf("COMPRESS:       %5.2fx increase, %d Kb --(block-compress)--> %d Kb\n",
+        System.err.printf("COMPRESS:       %5.3fx increase, %,d Kb --(block-compress)--> %,d Kb\n",
                 inputData * 1.0 / compressedData,
                 inputData / 1024,
                 compressedData / 1024
         );
 
-        System.err.printf("COMPRESS+DEDUP: %5.2fx increase, %d Kb --(block-compress)--> %d Kb ------(dedup)-------> %d Kb\n",
+        System.err.printf("COMPRESS+DEDUP: %5.3fx increase, %,d Kb --(block-compress)--> %,d Kb ------(dedup)-------> %,d Kb\n",
                 inputData * 1.0 / compressedDedupData,
                 inputData / 1024,
                 compressedData / 1024,
                 compressedDedupData / 1024
         );
 
-        System.err.printf("DEDUP:          %5.2fx increase, %d Kb ------(dedup)-------> %d Kb\n",
+        System.err.printf("DEDUP:          %5.3fx increase, %,d Kb ------(dedup)-------> %,d Kb\n",
                 inputData * 1.0 / dedupData,
                 inputData / 1024,
                 dedupData / 1024
         );
 
-        System.err.printf("DEDUP+COMPRESS: %5.2fx increase, %d Kb ------(dedup)-------> %d Kb --(block-compress)--> %d Kb\n",
+        System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d Kb ------(dedup)-------> %,d Kb --(block-compress)--> %,d Kb\n",
                 inputData * 1.0 / dedupCompressData,
                 inputData / 1024,
                 dedupData / 1024,
