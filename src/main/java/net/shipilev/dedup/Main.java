@@ -100,7 +100,9 @@ public class Main {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!attrs.isSymbolicLink()) {
-                    tpe.submit(new ProcessTask(BLOCK_SIZE, file.toFile(), uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
+                    File f = file.toFile();
+                    counters.queuedData.addAndGet(f.length());
+                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -135,6 +137,7 @@ public class Main {
             return;
         }
 
+        long queuedData = counters.queuedData.get();
         long inputData = counters.inputData.get();
         long compressedData = counters.compressedData.get();
         long compressedDedupData = counters.compressedDedupData.get();
@@ -146,13 +149,15 @@ public class Main {
             return;
         }
 
-        System.err.printf("Running at %5.2f Kbps (%5.2f Gb/hour), %d/%d files in the read queue\n",
-                (inputData * 1.0 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
+        System.err.printf("Running at %5.2f Mb/sec (%5.2f Gb/hour), %d/%d files, %d/%d Mb, ETA: %,ds\n",
+                (inputData * 1.0 / 1024 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 (inputData * 3600.0 / 1024 / 1024 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 abq.size(),
-                QUEUE_SIZE
+                QUEUE_SIZE,
+                inputData / 1024 / 1024,
+                queuedData / 1024 / 1024,
+                TimeUnit.NANOSECONDS.toSeconds((System.nanoTime() - firstPoll) / inputData * (queuedData - inputData))
         );
-
 
         System.err.printf("COMPRESS:       %5.3fx increase, %,d Kb --(block-compress)--> %,d Kb\n",
                 inputData * 1.0 / compressedData,

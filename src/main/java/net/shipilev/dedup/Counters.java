@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class Counters {
 
+    public final AtomicLong queuedData = new AtomicLong();
     public final AtomicLong inputData = new AtomicLong();
     public final AtomicLong compressedData = new AtomicLong();
     public final AtomicLong compressedDedupData = new AtomicLong();
