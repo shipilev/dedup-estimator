@@ -18,11 +18,12 @@ package net.shipilev.dedup;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import net.shipilev.dedup.storage.HashStorage;
+import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
 import java.io.*;
+import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 
 public class ProcessTask implements Runnable {
 
@@ -35,6 +36,9 @@ public class ProcessTask implements Runnable {
     private final Counters counters;
     private final LZ4Factory factory;
     private final ThreadLocal<MessageDigest> mds;
+    private final ThreadLocalByteArray uncompBufs;
+    private final ThreadLocalByteArray compBufs;
+    private final int maxCompLen;
 
     public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters) {
         this.blockSize = blockSize;
@@ -50,6 +54,9 @@ public class ProcessTask implements Runnable {
                 return null;
             }
         });
+        this.uncompBufs = new ThreadLocalByteArray(blockSize);
+        this.maxCompLen = factory.fastCompressor().maxCompressedLength(blockSize);
+        this.compBufs = new ThreadLocalByteArray(maxCompLen);
     }
 
     @Override
@@ -57,28 +64,34 @@ public class ProcessTask implements Runnable {
         try (
             BufferedInputStream reader = new BufferedInputStream(new FileInputStream(file))
         ) {
-            byte[] block = new byte[blockSize];
+            byte[] uncompBlock = uncompBufs.get();
+            byte[] compBlock = compBufs.get();
 
             MessageDigest md = mds.get();
 
             int read;
             int lastRead = blockSize;
-            while ((read = reader.read(block)) != -1) {
+            while ((read = reader.read(uncompBlock)) != -1) {
                 if (lastRead != blockSize) {
                     throw new IllegalStateException("Truncated read detected");
                 }
                 counters.inputData.addAndGet(read);
 
-                byte[] compressedBlock = compressBlock(factory, block, read);
-                counters.compressedData.addAndGet(compressedBlock.length);
+                LZ4Compressor lz4 = factory.fastCompressor();
+                int compLen = lz4.compress(uncompBlock, 0, read, compBlock, 0, maxCompLen);
 
-                if (consume(block, read, md, uncompressedHashes)) {
+                counters.compressedData.addAndGet(compLen);
+
+                md.update(uncompBlock, 0, read);
+                if (uncompressedHashes.add(md.digest())) {
                     counters.dedupData.addAndGet(read);
-                    counters.dedupCompressData.addAndGet(compressedBlock.length);
+                    counters.dedupCompressData.addAndGet(compLen);
                 }
 
-                if (consume(compressedBlock, compressedBlock.length, md, compressedHashes)) {
-                    counters.compressedDedupData.addAndGet(compressedBlock.length);
+                md.reset();
+                md.update(compBlock, 0, compLen);
+                if (compressedHashes.add(md.digest())) {
+                    counters.compressedDedupData.addAndGet(compLen);
                 }
 
                 lastRead = read;
@@ -86,21 +99,6 @@ public class ProcessTask implements Runnable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private byte[] compressBlock(LZ4Factory factory, byte[] block, int size) throws IOException {
-        LZ4Compressor lz4 = factory.fastCompressor();
-        int maxLen = lz4.maxCompressedLength(size);
-        byte[] compBlock = new byte[maxLen];
-        int compLen = lz4.compress(block, 0, size, compBlock, 0, maxLen);
-        return Arrays.copyOf(compBlock, compLen);
-    }
-
-    private boolean consume(byte[] block, int count, MessageDigest mdHash, HashStorage storage) {
-        mdHash.reset();
-        mdHash.update(block, 0, count);
-        byte[] checksum1 = mdHash.digest();
-        return storage.add(checksum1);
     }
 
 }

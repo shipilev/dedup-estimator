@@ -16,10 +16,14 @@
 package net.shipilev.dedup.streams;
 
 public class ThreadLocalByteArray extends ThreadLocal<byte[]> {
-    private static final int SIZE = 64 * 1024;
+    private final int size;
+
+    public ThreadLocalByteArray(int size) {
+        this.size = size;
+    }
 
     @Override
     protected byte[] initialValue() {
-        return new byte[SIZE];
+        return new byte[size];
     }
 }
