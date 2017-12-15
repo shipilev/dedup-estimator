@@ -40,8 +40,7 @@ public class Main {
     private final BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
     private final Counters counters = new Counters();
 
-    private HashStorage uncompressedHashes;
-    private HashStorage compressedHashes;
+    private HashStorage hashes;
 
     private long firstPoll;
 
@@ -57,20 +56,16 @@ public class Main {
     private void createStorages() {
         switch (STORAGE) {
             case "inmemory":
-                compressedHashes = new InMemoryHashStorage();
-                uncompressedHashes = new InMemoryHashStorage();
+                hashes = new InMemoryHashStorage();
                 break;
             case "berkeley":
-                compressedHashes = new BerkeleyHashStorage("hashes-compressed");
-                uncompressedHashes = new BerkeleyHashStorage("hashes-uncompressed");
+                hashes = new BerkeleyHashStorage("hashes");
                 break;
             case "h2":
-                compressedHashes = new H2HashStorage("hashes-compressed");
-                uncompressedHashes = new H2HashStorage("hashes-uncompressed");
+                hashes = new H2HashStorage("hashes");
                 break;
             case "derby":
-                compressedHashes = new DerbyHashStorage("hashes-compressed");
-                uncompressedHashes = new DerbyHashStorage("hashes-uncompressed");
+                hashes = new DerbyHashStorage("hashes");
                 break;
             default:
                 throw new IllegalStateException("Unknown storage " + Main.STORAGE);
@@ -102,7 +97,7 @@ public class Main {
                 if (!attrs.isSymbolicLink()) {
                     File f = file.toFile();
                     counters.queuedData.addAndGet(f.length());
-                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, uncompressedHashes, compressedHashes, counters));
+                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, hashes, counters));
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -132,7 +127,6 @@ public class Main {
         long queuedData = counters.queuedData.get();
         long inputData = counters.inputData.get();
         long compressedData = counters.compressedData.get();
-        long compressedDedupData = counters.compressedDedupData.get();
         long dedupData = counters.dedupData.get();
         long dedupCompressData = counters.dedupCompressData.get();
 
@@ -153,13 +147,6 @@ public class Main {
                 inputData * 1.0 / compressedData,
                 inputData / M,
                 compressedData / M
-        );
-
-        System.err.printf("COMPRESS+DEDUP: %5.3fx increase, %,d MB --(block-compress)--> %,d MB ------(dedup)-------> %,d MB\n",
-                inputData * 1.0 / compressedDedupData,
-                inputData / M,
-                compressedData / M,
-                compressedDedupData / M
         );
 
         System.err.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",

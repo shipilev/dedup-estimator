@@ -22,11 +22,11 @@ Binary builds are available here:
 Sample output:
 --------------------------------------------------------------------
 
-Running at 106.64 MB/sec (374.91 GB/hour), 254528/1000000 files, 2346/3776 MB, ETA: 12s
-COMPRESS:        1.86x, 4456426 Kb (...) ---> 2396159 Kb
-COMPRESS+DEDUP:  1.91x, 4456426 Kb (...) ---> 2335911 Kb
-DEDUP:           1.03x, 4456426 Kb (...) ---> 4306120 Kb
-DEDUP+COMPRESS:  1.91x, 4456426 Kb (...) ---> 2335692 Kb
+/home/shade/trunks/, using 4096-byte blocks
+Running at 1296.65 MB/sec (4558.53 GB/hour), 0/1000000 files, 55995/55995 MB, ETA: 0s
+COMPRESS:       1.250x increase, 55,995 MB --(block-compress)--> 44,797 MB
+DEDUP:          1.311x increase, 55,995 MB ------(dedup)-------> 42,702 MB
+DEDUP+COMPRESS: 1.564x increase, 55,995 MB ------(dedup)-------> 42,702 MB --(block-compress)--> 35,813 MB
 
 Settings to play with:
 --------------------------------------------------------------------
