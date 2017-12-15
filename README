@@ -37,6 +37,9 @@ Settings to play with:
  -DblockSize = # (default is 4096)
     Target filesystem block size.
 
+ -Dhash = # (default is "SHA-256")
+    Hash to use for deduplication
+
  -Dstorage = # (default is "inmemory")
     Hash storage implementation. Bundled implementations:
       - inmemory: uses ConcurrentHashMap to store on heap

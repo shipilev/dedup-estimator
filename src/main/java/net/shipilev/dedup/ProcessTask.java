@@ -21,13 +21,10 @@ import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
 import java.io.*;
-import java.security.DigestException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class ProcessTask implements Runnable {
-
-    public static final String HASH = "SHA-256";
 
     private final int blockSize;
     private final File file;
@@ -49,7 +46,7 @@ public class ProcessTask implements Runnable {
         this.factory = LZ4Factory.fastestInstance();
         this.mds = ThreadLocal.withInitial(() -> {
             try {
-                return MessageDigest.getInstance(HASH);
+                return MessageDigest.getInstance(Main.HASH);
             } catch (NoSuchAlgorithmException e) {
                 return null;
             }
