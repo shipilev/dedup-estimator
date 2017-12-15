@@ -58,8 +58,11 @@ public class ProcessTask implements Runnable {
             MessageDigest compressedMD2 = MessageDigest.getInstance(HASH_2);
 
             int read;
+            int lastRead = blockSize;
             while ((read = reader.read(block)) != -1) {
-
+                if (lastRead != blockSize) {
+                    throw new IllegalStateException("Truncated read detected");
+                }
                 counters.inputData.addAndGet(read);
 
                 byte[] compressedBlock = compressBlock(block, read);
@@ -74,6 +77,7 @@ public class ProcessTask implements Runnable {
                     counters.compressedDedupData.addAndGet(compressedBlock.length);
                 }
 
+                lastRead = read;
             }
         } catch (IOException | NoSuchAlgorithmException e) {
             e.printStackTrace();
