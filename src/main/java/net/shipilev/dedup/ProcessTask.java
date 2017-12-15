@@ -33,6 +33,8 @@ public class ProcessTask implements Runnable {
     private final HashStorage compressedHashes;
     private final HashStorage uncompressedHashes;
     private final Counters counters;
+    private final LZ4Factory factory;
+    private final ThreadLocal<MessageDigest> mds;
 
     public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters) {
         this.blockSize = blockSize;
@@ -40,6 +42,14 @@ public class ProcessTask implements Runnable {
         this.compressedHashes = compressedHashes;
         this.uncompressedHashes = uncompressedHashes;
         this.counters = counters;
+        this.factory = LZ4Factory.fastestInstance();
+        this.mds = ThreadLocal.withInitial(() -> {
+            try {
+                return MessageDigest.getInstance(HASH);
+            } catch (NoSuchAlgorithmException e) {
+                return null;
+            }
+        });
     }
 
     @Override
@@ -49,10 +59,7 @@ public class ProcessTask implements Runnable {
         ) {
             byte[] block = new byte[blockSize];
 
-            MessageDigest hashUncomp = MessageDigest.getInstance(HASH);
-            MessageDigest hashComp = MessageDigest.getInstance(HASH);
-
-            LZ4Factory factory = LZ4Factory.fastestInstance();
+            MessageDigest md = mds.get();
 
             int read;
             int lastRead = blockSize;
@@ -65,18 +72,18 @@ public class ProcessTask implements Runnable {
                 byte[] compressedBlock = compressBlock(factory, block, read);
                 counters.compressedData.addAndGet(compressedBlock.length);
 
-                if (consume(block, read, hashUncomp, uncompressedHashes)) {
+                if (consume(block, read, md, uncompressedHashes)) {
                     counters.dedupData.addAndGet(read);
                     counters.dedupCompressData.addAndGet(compressedBlock.length);
                 }
 
-                if (consume(compressedBlock, compressedBlock.length, hashComp, compressedHashes)) {
+                if (consume(compressedBlock, compressedBlock.length, md, compressedHashes)) {
                     counters.compressedDedupData.addAndGet(compressedBlock.length);
                 }
 
                 lastRead = read;
             }
-        } catch (IOException | NoSuchAlgorithmException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
