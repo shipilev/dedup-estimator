@@ -82,7 +82,7 @@ public class ProcessTask implements Runnable {
 
     private byte[] compressBlock(byte[] block, int size) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream(size);
-        GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(baos);
+        GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(baos, size);
         blockCompress.write(block);
         blockCompress.finish();
         blockCompress.flush();

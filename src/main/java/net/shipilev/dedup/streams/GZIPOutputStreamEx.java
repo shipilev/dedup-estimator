@@ -22,10 +22,8 @@ import java.util.zip.GZIPOutputStream;
 
 public class GZIPOutputStreamEx extends GZIPOutputStream {
 
-    public static final int BUFFER_SIZE = 64 * 1024;
-
-    public GZIPOutputStreamEx(OutputStream stream) throws IOException {
-        super(stream, BUFFER_SIZE);
+    public GZIPOutputStreamEx(OutputStream stream, int bufferSize) throws IOException {
+        super(stream, bufferSize);
         def.setLevel(Deflater.BEST_SPEED);
     }
 
