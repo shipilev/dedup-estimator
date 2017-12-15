@@ -35,7 +35,6 @@ public class Main {
     private static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
     private static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() + 1);
     private static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
-    private static final boolean DETECT_COLLISIONS = Boolean.getBoolean("collisions");
 
     private final BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
     private final Counters counters = new Counters();
@@ -102,7 +101,7 @@ public class Main {
                 if (!attrs.isSymbolicLink()) {
                     File f = file.toFile();
                     counters.queuedData.addAndGet(f.length());
-                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, uncompressedHashes, compressedHashes, counters, DETECT_COLLISIONS));
+                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, uncompressedHashes, compressedHashes, counters));
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -174,15 +173,6 @@ public class Main {
                 dedupData / M,
                 dedupCompressData / M
         );
-
-        if (DETECT_COLLISIONS) {
-            System.err.printf("detected collisions: %d on %s, %d on %s\n",
-                    counters.collisions1.get() + counters.collisions1.get(),
-                    ProcessTask.HASH_1,
-                    counters.collisions2.get() + counters.collisions2.get(),
-                    ProcessTask.HASH_2
-            );
-        }
 
         System.err.println();
     }
