@@ -149,40 +149,43 @@ public class Main {
             return;
         }
 
-        System.err.printf("Running at %5.2f Mb/sec (%5.2f Gb/hour), %d/%d files, %d/%d Mb, ETA: %,ds\n",
-                (inputData * 1.0 / 1024 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
-                (inputData * 3600.0 / 1024 / 1024 / 1024 * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
+        final int M = 1024 * 1024;
+        final int G = 1024 * 1024 * 1024;
+
+        System.err.printf("Running at %5.2f MB/sec (%5.2f Gb/hour), %d/%d files, %d/%d MB, ETA: %,ds\n",
+                (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
+                (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 abq.size(),
                 QUEUE_SIZE,
-                inputData / 1024 / 1024,
-                queuedData / 1024 / 1024,
+                inputData / M,
+                queuedData / M,
                 TimeUnit.NANOSECONDS.toSeconds((System.nanoTime() - firstPoll) / inputData * (queuedData - inputData))
         );
 
-        System.err.printf("COMPRESS:       %5.3fx increase, %,d Kb --(block-compress)--> %,d Kb\n",
+        System.err.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
                 inputData * 1.0 / compressedData,
-                inputData / 1024,
-                compressedData / 1024
+                inputData / M,
+                compressedData / M
         );
 
-        System.err.printf("COMPRESS+DEDUP: %5.3fx increase, %,d Kb --(block-compress)--> %,d Kb ------(dedup)-------> %,d Kb\n",
+        System.err.printf("COMPRESS+DEDUP: %5.3fx increase, %,d MB --(block-compress)--> %,d MB ------(dedup)-------> %,d MB\n",
                 inputData * 1.0 / compressedDedupData,
-                inputData / 1024,
-                compressedData / 1024,
-                compressedDedupData / 1024
+                inputData / M,
+                compressedData / M,
+                compressedDedupData / M
         );
 
-        System.err.printf("DEDUP:          %5.3fx increase, %,d Kb ------(dedup)-------> %,d Kb\n",
+        System.err.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",
                 inputData * 1.0 / dedupData,
-                inputData / 1024,
-                dedupData / 1024
+                inputData / M,
+                dedupData / M
         );
 
-        System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d Kb ------(dedup)-------> %,d Kb --(block-compress)--> %,d Kb\n",
+        System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d MB ------(dedup)-------> %,d MB --(block-compress)--> %,d MB\n",
                 inputData * 1.0 / dedupCompressData,
-                inputData / 1024,
-                dedupData / 1024,
-                dedupCompressData / 1024
+                inputData / M,
+                dedupData / M,
+                dedupCompressData / M
         );
 
         if (DETECT_COLLISIONS) {
