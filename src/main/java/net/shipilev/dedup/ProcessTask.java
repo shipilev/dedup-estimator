@@ -59,7 +59,7 @@ public class ProcessTask implements Runnable {
     @Override
     public void run() {
         try (
-            BufferedInputStream reader = new BufferedInputStream(new FileInputStream(file))
+            FileInputStream reader = new FileInputStream(file)
         ) {
             byte[] uncompBlock = uncompBufs.get();
             byte[] compBlock = compBufs.get();
