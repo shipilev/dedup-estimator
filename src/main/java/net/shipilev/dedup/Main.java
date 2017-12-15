@@ -43,7 +43,6 @@ public class Main {
     private HashStorage uncompressedHashes;
     private HashStorage compressedHashes;
 
-    private int printCounter;
     private long firstPoll;
 
     public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException, IOException {
@@ -85,8 +84,14 @@ public class Main {
         System.err.println("Using " + BLOCK_SIZE + "-byte blocks");
 
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(new PrintDetails(), 1, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
+        executor.scheduleAtFixedRate(new Runnable() {
+            @Override
+            public void run() {
+                printProgress();
+            }
+        }, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
 
+        firstPoll = System.nanoTime();
 
         final ThreadPoolExecutor tpe = new ThreadPoolExecutor(THREADS, THREADS, 1, TimeUnit.DAYS, abq);
         tpe.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
@@ -119,24 +124,16 @@ public class Main {
         });
 
         tpe.shutdown();
-        executor.shutdownNow();
 
-        while (!tpe.awaitTermination(1, TimeUnit.SECONDS)) {
-            printProgress(true);
-        }
+        tpe.awaitTermination(365, TimeUnit.DAYS);
+        executor.shutdownNow();
 
         System.err.println("FINAL RESULT:");
         System.err.println(path + ", using " + BLOCK_SIZE + "-byte blocks");
-        printProgress(true);
+        printProgress();
     }
 
-
-    private void printProgress(boolean proceedAlways) {
-        printCounter++;
-        if (!proceedAlways && (printCounter & (16384 - 1)) == 0) {
-            return;
-        }
-
+    private void printProgress() {
         long queuedData = counters.queuedData.get();
         long inputData = counters.inputData.get();
         long compressedData = counters.compressedData.get();
@@ -144,15 +141,10 @@ public class Main {
         long dedupData = counters.dedupData.get();
         long dedupCompressData = counters.dedupCompressData.get();
 
-        if (firstPoll == 0) {
-            firstPoll = System.nanoTime();
-            return;
-        }
-
         final int M = 1024 * 1024;
         final int G = 1024 * 1024 * 1024;
 
-        System.err.printf("Running at %5.2f MB/sec (%5.2f Gb/hour), %d/%d files, %d/%d MB, ETA: %,ds\n",
+        System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d files, %d/%d MB, ETA: %,ds\n",
                 (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 abq.size(),
@@ -201,10 +193,4 @@ public class Main {
     }
 
 
-    private class PrintDetails implements Runnable {
-        @Override
-        public void run() {
-            printProgress(true);
-        }
-    }
 }
