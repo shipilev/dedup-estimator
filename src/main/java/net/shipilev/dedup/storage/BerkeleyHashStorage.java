@@ -55,11 +55,7 @@ public class BerkeleyHashStorage implements HashStorage {
     public boolean add(byte[] data) {
         try {
             OperationStatus status = database.putNoOverwrite(null, new DatabaseEntry(data), constValue);
-            if (status.equals(OperationStatus.SUCCESS)) {
-                return true;
-            } else {
-                return false;
-            }
+            return status.equals(OperationStatus.SUCCESS);
         } catch (DatabaseException e) {
             e.printStackTrace();
             return false;

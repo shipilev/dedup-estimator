@@ -33,7 +33,7 @@ public class ProcessTask implements Runnable {
     private final HashStorage compressedHashes;
     private final HashStorage uncompressedHashes;
     private final Counters counters;
-    private boolean detectCollisions;
+    private final boolean detectCollisions;
 
     public ProcessTask(int blockSize, File file, HashStorage compressedHashes, HashStorage uncompressedHashes, Counters counters, boolean detectCollisions) {
         this.blockSize = blockSize;

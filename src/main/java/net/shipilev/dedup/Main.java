@@ -54,8 +54,8 @@ public class Main {
         new Main().run(path);
     }
 
-    private void createStorages(String storage) {
-        switch (storage) {
+    private void createStorages() {
+        switch (STORAGE) {
             case "inmemory":
                 compressedHashes = new InMemoryHashStorage();
                 uncompressedHashes = new InMemoryHashStorage();
@@ -73,23 +73,18 @@ public class Main {
                 uncompressedHashes = new DerbyHashStorage("hashes-uncompressed");
                 break;
             default:
-                throw new IllegalStateException("Unknown storage " + storage);
+                throw new IllegalStateException("Unknown storage " + Main.STORAGE);
         }
     }
 
     private void run(String path) throws InterruptedException, IOException {
-        createStorages(STORAGE);
+        createStorages();
 
         System.err.println("Running with " + THREADS + " threads");
         System.err.println("Using " + BLOCK_SIZE + "-byte blocks");
 
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(new Runnable() {
-            @Override
-            public void run() {
-                printProgress();
-            }
-        }, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
+        executor.scheduleAtFixedRate(this::printProgress, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
 
         firstPoll = System.nanoTime();
 
