@@ -15,8 +15,9 @@
  */
 package net.shipilev.dedup;
 
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
 import net.shipilev.dedup.storage.HashStorage;
-import net.shipilev.dedup.streams.GZIPOutputStreamEx;
 
 import java.io.*;
 import java.security.MessageDigest;
@@ -51,6 +52,8 @@ public class ProcessTask implements Runnable {
             MessageDigest hashUncomp = MessageDigest.getInstance(HASH);
             MessageDigest hashComp = MessageDigest.getInstance(HASH);
 
+            LZ4Factory factory = LZ4Factory.fastestInstance();
+
             int read;
             int lastRead = blockSize;
             while ((read = reader.read(block)) != -1) {
@@ -59,7 +62,7 @@ public class ProcessTask implements Runnable {
                 }
                 counters.inputData.addAndGet(read);
 
-                byte[] compressedBlock = compressBlock(block, read);
+                byte[] compressedBlock = compressBlock(factory, block, read);
                 counters.compressedData.addAndGet(compressedBlock.length);
 
                 if (consume(block, read, hashUncomp, uncompressedHashes)) {
@@ -78,14 +81,12 @@ public class ProcessTask implements Runnable {
         }
     }
 
-    private byte[] compressBlock(byte[] block, int size) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(size);
-        GZIPOutputStreamEx blockCompress = new GZIPOutputStreamEx(baos, size);
-        blockCompress.write(block);
-        blockCompress.finish();
-        blockCompress.flush();
-        blockCompress.close();
-        return baos.toByteArray();
+    private byte[] compressBlock(LZ4Factory factory, byte[] block, int size) throws IOException {
+        LZ4Compressor lz4 = factory.fastCompressor();
+        int maxLen = lz4.maxCompressedLength(size);
+        byte[] compBlock = new byte[maxLen];
+        int compLen = lz4.compress(block, 0, size, compBlock, 0, maxLen);
+        return Arrays.copyOf(compBlock, compLen);
     }
 
     private boolean consume(byte[] block, int count, MessageDigest mdHash, HashStorage storage) {
