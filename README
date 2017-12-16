@@ -52,5 +52,5 @@ Caveats:
 
 * Default mode uses in-memory hash storage, which can OOM on large
   enough datasets. Consider using off-heap storage for large FSes.
-  The rule of thumb: 1G of heap space can take up 2M+ hashes,
-  which translates to ~10G total FS size with 4K blocks.
+  The rule of thumb: with 4K blocks, you will need ~1 GB of heap space
+  per 15 GB of dedup-ed FS size.
