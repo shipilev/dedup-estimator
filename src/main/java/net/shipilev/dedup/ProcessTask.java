@@ -28,7 +28,7 @@ public class ProcessTask implements Runnable {
 
     private final int blockSize;
     private final File file;
-    private final HashStorage uncompressedHashes;
+    private final HashStorage hashes;
     private final Counters counters;
     private final LZ4Factory factory;
     private final ThreadLocal<MessageDigest> mds;
@@ -36,10 +36,10 @@ public class ProcessTask implements Runnable {
     private final ThreadLocalByteArray compBufs;
     private final int maxCompLen;
 
-    public ProcessTask(int blockSize, File file, HashStorage uncompressedHashes, Counters counters) {
+    public ProcessTask(int blockSize, File file, HashStorage hashes, Counters counters) {
         this.blockSize = blockSize;
         this.file = file;
-        this.uncompressedHashes = uncompressedHashes;
+        this.hashes = hashes;
         this.counters = counters;
         this.factory = LZ4Factory.fastestInstance();
         this.mds = ThreadLocal.withInitial(() -> {
@@ -78,7 +78,7 @@ public class ProcessTask implements Runnable {
                 counters.compressedData.addAndGet(compLen);
 
                 md.update(uncompBlock, 0, read);
-                if (uncompressedHashes.add(md.digest())) {
+                if (hashes.add(md.digest())) {
                     counters.dedupData.addAndGet(read);
                     counters.dedupCompressData.addAndGet(compLen);
                 }
