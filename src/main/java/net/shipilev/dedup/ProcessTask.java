@@ -21,59 +21,55 @@ import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class ProcessTask implements Runnable {
 
-    private final int blockSize;
-    private final File file;
+    private static final ThreadLocal<MessageDigest> MDS = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance(Main.HASH);
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+    });
+    private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
+    private static final ThreadLocalByteArray UNCOMP_BUFS = new ThreadLocalByteArray(Main.BLOCK_SIZE);
+    private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE);
+    private static final ThreadLocalByteArray COMP_BUFS = new ThreadLocalByteArray(MAX_COMP_LEN);
+
+    private final Path file;
     private final HashStorage hashes;
     private final Counters counters;
-    private final LZ4Factory factory;
-    private final ThreadLocal<MessageDigest> mds;
-    private final ThreadLocalByteArray uncompBufs;
-    private final ThreadLocalByteArray compBufs;
-    private final int maxCompLen;
 
-    public ProcessTask(int blockSize, File file, HashStorage hashes, Counters counters) {
-        this.blockSize = blockSize;
+    public ProcessTask(Path file, HashStorage hashes, Counters counters) {
         this.file = file;
         this.hashes = hashes;
         this.counters = counters;
-        this.factory = LZ4Factory.fastestInstance();
-        this.mds = ThreadLocal.withInitial(() -> {
-            try {
-                return MessageDigest.getInstance(Main.HASH);
-            } catch (NoSuchAlgorithmException e) {
-                return null;
-            }
-        });
-        this.uncompBufs = new ThreadLocalByteArray(blockSize);
-        this.maxCompLen = factory.fastCompressor().maxCompressedLength(blockSize);
-        this.compBufs = new ThreadLocalByteArray(maxCompLen);
     }
 
     @Override
     public void run() {
         try (
-            FileInputStream reader = new FileInputStream(file)
+            InputStream reader = Files.newInputStream(file)
         ) {
-            byte[] uncompBlock = uncompBufs.get();
-            byte[] compBlock = compBufs.get();
+            byte[] uncompBlock = UNCOMP_BUFS.get();
+            byte[] compBlock = COMP_BUFS.get();
 
-            MessageDigest md = mds.get();
+            MessageDigest md = MDS.get();
 
             int read;
-            int lastRead = blockSize;
+            int lastRead = Main.BLOCK_SIZE;
             while ((read = reader.read(uncompBlock)) != -1) {
-                if (lastRead != blockSize) {
+                if (lastRead != Main.BLOCK_SIZE) {
                     throw new IllegalStateException("Truncated read detected");
                 }
                 counters.inputData.addAndGet(read);
 
-                LZ4Compressor lz4 = factory.fastCompressor();
-                int compLen = lz4.compress(uncompBlock, 0, read, compBlock, 0, maxCompLen);
+                LZ4Compressor lz4 = FACTORY.fastCompressor();
+                int compLen = lz4.compress(uncompBlock, 0, read, compBlock, 0, MAX_COMP_LEN);
 
                 counters.compressedData.addAndGet(compLen);
 
