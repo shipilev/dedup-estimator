@@ -34,7 +34,7 @@ public class Main {
     static final String HASH = System.getProperty("hash", "SHA-256");
     static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
     static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
-    static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() + 1);
+    static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() - 1);
     static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
 
     private final BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
