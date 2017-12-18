@@ -28,17 +28,28 @@ import java.security.NoSuchAlgorithmException;
 
 public class ProcessTask implements Runnable {
 
-    private static final ThreadLocal<MessageDigest> MDS = ThreadLocal.withInitial(() -> {
-        try {
-            return MessageDigest.getInstance(Main.HASH);
-        } catch (NoSuchAlgorithmException e) {
-            return null;
-        }
-    });
+    private static final ThreadLocal<MessageDigest> MDS;
     private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
-    private static final ThreadLocalByteArray UNCOMP_BUFS = new ThreadLocalByteArray(Main.BLOCK_SIZE);
     private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE);
     private static final ThreadLocalByteArray COMP_BUFS = new ThreadLocalByteArray(MAX_COMP_LEN);
+    private static final ThreadLocalByteArray READ_BUFS;
+
+    static {
+        final int TARGET_SIZE = 1 << 20; // 1 M per thread
+        int size = 1;
+        for (int mult = 0; (mult < 20) && (size < TARGET_SIZE); mult++) {
+            size = Main.BLOCK_SIZE * (1 << mult);
+        }
+        READ_BUFS = new ThreadLocalByteArray(size);
+
+        MDS = ThreadLocal.withInitial(() -> {
+            try {
+                return MessageDigest.getInstance(Main.HASH);
+            } catch (NoSuchAlgorithmException e) {
+                return null;
+            }
+        });
+    }
 
     private final Path file;
     private final HashStorage hashes;
@@ -55,31 +66,29 @@ public class ProcessTask implements Runnable {
         try (
             InputStream reader = Files.newInputStream(file)
         ) {
-            byte[] uncompBlock = UNCOMP_BUFS.get();
+            byte[] readBuf = READ_BUFS.get();
             byte[] compBlock = COMP_BUFS.get();
 
             MessageDigest md = MDS.get();
 
             int read;
-            int lastRead = Main.BLOCK_SIZE;
-            while ((read = reader.read(uncompBlock)) != -1) {
-                if (lastRead != Main.BLOCK_SIZE) {
-                    throw new IllegalStateException("Truncated read detected");
+            while ((read = reader.read(readBuf)) != -1) {
+                for (int start = 0; start < read; start += Main.BLOCK_SIZE) {
+                    int size = Math.min(read - start, Main.BLOCK_SIZE);
+
+                    counters.inputData.addAndGet(size);
+
+                    LZ4Compressor lz4 = FACTORY.fastCompressor();
+                    int compLen = lz4.compress(readBuf, start, size, compBlock, 0, MAX_COMP_LEN);
+
+                    counters.compressedData.addAndGet(compLen);
+
+                    md.update(readBuf, start, size);
+                    if (hashes.add(md.digest())) {
+                        counters.dedupData.addAndGet(size);
+                        counters.dedupCompressData.addAndGet(compLen);
+                    }
                 }
-                counters.inputData.addAndGet(read);
-
-                LZ4Compressor lz4 = FACTORY.fastCompressor();
-                int compLen = lz4.compress(uncompBlock, 0, read, compBlock, 0, MAX_COMP_LEN);
-
-                counters.compressedData.addAndGet(compLen);
-
-                md.update(uncompBlock, 0, read);
-                if (hashes.add(md.digest())) {
-                    counters.dedupData.addAndGet(read);
-                    counters.dedupCompressData.addAndGet(compLen);
-                }
-
-                lastRead = read;
             }
         } catch (IOException e) {
             e.printStackTrace();
