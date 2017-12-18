@@ -95,9 +95,8 @@ public class Main {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!attrs.isSymbolicLink()) {
-                    File f = file.toFile();
-                    counters.queuedData.addAndGet(f.length());
-                    tpe.submit(new ProcessTask(BLOCK_SIZE, f, hashes, counters));
+                    counters.queuedData.addAndGet(Files.size(file));
+                    tpe.submit(new ProcessTask(file, hashes, counters));
                 }
                 return FileVisitResult.CONTINUE;
             }
