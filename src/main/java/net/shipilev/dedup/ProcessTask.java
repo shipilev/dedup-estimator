@@ -70,6 +70,7 @@ public class ProcessTask implements Runnable {
             byte[] compBlock = COMP_BUFS.get();
 
             MessageDigest md = MDS.get();
+            LZ4Compressor lz4 = FACTORY.fastCompressor();
 
             int read;
             while ((read = reader.read(readBuf)) != -1) {
@@ -81,11 +82,9 @@ public class ProcessTask implements Runnable {
                 for (int start = 0; start < read; start += Main.BLOCK_SIZE) {
                     int size = Math.min(read - start, Main.BLOCK_SIZE);
 
-                    inputData += size;
-
-                    LZ4Compressor lz4 = FACTORY.fastCompressor();
                     int compLen = lz4.compress(readBuf, start, size, compBlock, 0, MAX_COMP_LEN);
 
+                    inputData += size;
                     compressedData += compLen;
 
                     md.update(readBuf, start, size);
