@@ -73,22 +73,32 @@ public class ProcessTask implements Runnable {
 
             int read;
             while ((read = reader.read(readBuf)) != -1) {
+                int inputData = 0;
+                int compressedData = 0;
+                int dedupData = 0;
+                int dedupCompressData = 0;
+
                 for (int start = 0; start < read; start += Main.BLOCK_SIZE) {
                     int size = Math.min(read - start, Main.BLOCK_SIZE);
 
-                    counters.inputData.addAndGet(size);
+                    inputData += size;
 
                     LZ4Compressor lz4 = FACTORY.fastCompressor();
                     int compLen = lz4.compress(readBuf, start, size, compBlock, 0, MAX_COMP_LEN);
 
-                    counters.compressedData.addAndGet(compLen);
+                    compressedData += compLen;
 
                     md.update(readBuf, start, size);
                     if (hashes.add(md.digest())) {
-                        counters.dedupData.addAndGet(size);
-                        counters.dedupCompressData.addAndGet(compLen);
+                        dedupData += size;
+                        dedupCompressData += size;
                     }
                 }
+
+                counters.inputData.addAndGet(inputData);
+                counters.compressedData.addAndGet(compressedData);
+                counters.dedupData.addAndGet(dedupData);
+                counters.dedupCompressData.addAndGet(dedupCompressData);
             }
         } catch (IOException e) {
             e.printStackTrace();
