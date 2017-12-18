@@ -91,7 +91,7 @@ public class ProcessTask implements Runnable {
                     md.update(readBuf, start, size);
                     if (hashes.add(md.digest())) {
                         dedupData += size;
-                        dedupCompressData += size;
+                        dedupCompressData += compLen;
                     }
                 }
 
