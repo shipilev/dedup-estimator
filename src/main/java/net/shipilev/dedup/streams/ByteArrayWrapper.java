@@ -26,12 +26,8 @@ public class ByteArrayWrapper {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof ByteArrayWrapper)) {
-            return false;
-        }
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
 
         ByteArrayWrapper that = (ByteArrayWrapper) o;
 
@@ -40,10 +36,6 @@ public class ByteArrayWrapper {
 
     @Override
     public int hashCode() {
-        return array != null ? Arrays.hashCode(array) : 0;
-    }
-
-    public byte[] getArray() {
-        return array;
+        return Arrays.hashCode(array);
     }
 }
