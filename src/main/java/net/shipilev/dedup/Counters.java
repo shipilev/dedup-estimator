@@ -15,11 +15,12 @@
  */
 package net.shipilev.dedup;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Counters {
 
+    public final AtomicLong queuedFiles = new AtomicLong();
+    public final AtomicLong processedFiles = new AtomicLong();
     public final AtomicLong queuedData = new AtomicLong();
     public final AtomicLong inputData = new AtomicLong();
     public final AtomicLong compressedData = new AtomicLong();

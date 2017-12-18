@@ -96,6 +96,7 @@ public class Main {
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!attrs.isSymbolicLink()) {
                     counters.queuedData.addAndGet(Files.size(file));
+                    counters.queuedFiles.incrementAndGet();
                     tpe.submit(new ProcessTask(file, hashes, counters));
                 }
                 return FileVisitResult.CONTINUE;
@@ -123,6 +124,8 @@ public class Main {
     }
 
     private void printProgress() {
+        long queuedFiles = counters.queuedFiles.get();
+        long processedFiles = counters.processedFiles.get();
         long queuedData = counters.queuedData.get();
         long inputData = counters.inputData.get();
         long compressedData = counters.compressedData.get();
@@ -135,8 +138,8 @@ public class Main {
         System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d files, %d/%d MB, ETA: %,ds\n",
                 (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
                 (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
-                abq.size(),
-                QUEUE_SIZE,
+                processedFiles,
+                queuedFiles,
                 inputData / M,
                 queuedData / M,
                 TimeUnit.NANOSECONDS.toSeconds((System.nanoTime() - firstPoll) / inputData * (queuedData - inputData))

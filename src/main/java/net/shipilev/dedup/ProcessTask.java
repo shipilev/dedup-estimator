@@ -99,6 +99,7 @@ public class ProcessTask implements Runnable {
                 counters.dedupData.addAndGet(dedupData);
                 counters.dedupCompressData.addAndGet(dedupCompressData);
             }
+            counters.processedFiles.incrementAndGet();
         } catch (IOException e) {
             e.printStackTrace();
         }
