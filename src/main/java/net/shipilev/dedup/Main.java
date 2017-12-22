@@ -132,12 +132,18 @@ public class Main {
         long dedupData = counters.dedupData.get();
         long dedupCompressData = counters.dedupCompressData.get();
 
+        // Avoid division by zero:
+        if (inputData == 0)         inputData = 1;
+        if (compressedData == 0)    compressedData = 1;
+        if (dedupData == 0)         dedupData = 1;
+        if (dedupCompressData == 0) dedupCompressData = 1;
+
         final int M = 1024 * 1024;
         final int G = 1024 * 1024 * 1024;
 
         System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d files, %d/%d MB, ETA: %,ds\n",
-                (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
-                (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll),
+                (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
+                (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 processedFiles,
                 queuedFiles,
                 inputData / M,
