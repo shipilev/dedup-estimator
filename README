@@ -23,10 +23,13 @@ Sample output:
 --------------------------------------------------------------------
 
 /home/shade/trunks/, using 4096-byte blocks
-Running at 1296.65 MB/sec (4558.53 GB/hour), 0/1000000 files, 55995/55995 MB, ETA: 0s
-COMPRESS:       1.250x increase, 55,995 MB --(block-compress)--> 44,797 MB
-DEDUP:          1.311x increase, 55,995 MB ------(dedup)-------> 42,702 MB
-DEDUP+COMPRESS: 1.564x increase, 55,995 MB ------(dedup)-------> 42,702 MB --(block-compress)--> 35,813 MB
+Running at 1670.28 MB/sec (5872.08 GB/hour), 2566030/2566030 files, 61178/61178 MB, ETA: 0s
+COMPRESS:       1.278x increase, 61,178 MB --(block-compress)--> 47,878 MB
+DEDUP:          1.318x increase, 61,178 MB ------(dedup)-------> 46,406 MB
+DEDUP+COMPRESS: 1.613x increase, 61,178 MB ------(dedup)-------> 46,406 MB --(block-compress)--> 37,938 MB
+
+The numbers above are from file cache. Actual performance might be lower,
+especially when slower disks are used.
 
 Settings to play with:
 --------------------------------------------------------------------
