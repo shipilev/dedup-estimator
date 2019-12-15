@@ -28,7 +28,7 @@ public class Main {
     static final String STORAGE = System.getProperty("storage", "inmemory");
     static final String HASH = System.getProperty("hash", "SHA-256");
     static final int BLOCK_SIZE = Integer.getInteger("blockSize", 128);
-    static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() - 1);
+    static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors());
     static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
 
     private final Counters counters = new Counters();
