@@ -25,8 +25,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.RecursiveAction;
 
-public class ProcessTask implements Runnable {
+public class ProcessTask extends RecursiveAction {
 
     private static final ThreadLocal<MessageDigest> MDS;
     private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
@@ -62,10 +63,8 @@ public class ProcessTask implements Runnable {
     }
 
     @Override
-    public void run() {
-        try (
-            InputStream reader = Files.newInputStream(file)
-        ) {
+    protected void compute() {
+        try (InputStream reader = Files.newInputStream(file)) {
             byte[] readBuf = READ_BUFS.get();
             byte[] compBlock = COMP_BUFS.get();
 
@@ -104,5 +103,4 @@ public class ProcessTask implements Runnable {
             e.printStackTrace();
         }
     }
-
 }

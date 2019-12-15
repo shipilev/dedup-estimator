@@ -19,11 +19,6 @@ import net.shipilev.dedup.storage.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestException;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.*;
@@ -32,12 +27,10 @@ public class Main {
 
     static final String STORAGE = System.getProperty("storage", "inmemory");
     static final String HASH = System.getProperty("hash", "SHA-256");
-    static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
     static final int BLOCK_SIZE = Integer.getInteger("blockSize", 128);
     static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() - 1);
     static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
 
-    private final BlockingQueue<Runnable> abq = new ArrayBlockingQueue<>(QUEUE_SIZE);
     private final Counters counters = new Counters();
 
     private HashStorage hashes;
@@ -78,45 +71,14 @@ public class Main {
         System.err.println("Running with " + THREADS + " threads");
         System.err.println("Using " + BLOCK_SIZE + " KB blocks");
 
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-        executor.scheduleAtFixedRate(this::printProgress, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
-
+        ScheduledExecutorService poller = Executors.newScheduledThreadPool(1);
+        poller.scheduleAtFixedRate(this::printProgress, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
         firstPoll = System.nanoTime();
 
-        final ThreadPoolExecutor tpe = new ThreadPoolExecutor(THREADS, THREADS, 1, TimeUnit.DAYS, abq);
-        tpe.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        ForkJoinPool fjp = new ForkJoinPool(THREADS);
+        fjp.invoke(new WalkTask(new File(path).toPath(), hashes, counters));
 
-        Files.walkFileTree(new File(path).toPath(), new FileVisitor<Path>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (attrs.isRegularFile() && !attrs.isSymbolicLink()) {
-                    counters.queuedData.addAndGet(Files.size(file));
-                    counters.queuedFiles.incrementAndGet();
-                    tpe.submit(new ProcessTask(file, hashes, counters));
-                }
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                return FileVisitResult.CONTINUE;
-            }
-        });
-
-        tpe.shutdown();
-
-        tpe.awaitTermination(365, TimeUnit.DAYS);
-        executor.shutdownNow();
+        poller.shutdownNow();
 
         System.err.println("FINAL RESULT:");
         System.err.println(path + ", using " + BLOCK_SIZE + " KB blocks");
