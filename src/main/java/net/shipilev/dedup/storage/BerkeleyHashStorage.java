@@ -20,35 +20,30 @@ import com.sleepycat.je.*;
 import java.io.File;
 
 public class BerkeleyHashStorage implements HashStorage {
-    private Database database;
-    private DatabaseEntry constValue;
+    private final Database database;
+    private final DatabaseEntry constValue;
 
     public BerkeleyHashStorage(String name) {
         try {
-            setup(name);
+            EnvironmentConfig config = new EnvironmentConfig();
+            config.setAllowCreate(true);
+
+            File file = new File(name);
+            boolean isCreated = file.mkdirs();
+            if (!isCreated) {
+                System.err.println("WARNING: " + name + " already exists, did you forget to remove previous DB?\n" +
+                        "WARNING: This might interfere with your results. Please proceed only if you know what you're doing.");
+            }
+            Environment environment = new Environment(file, config);
+            DatabaseConfig dbConfig = new DatabaseConfig();
+            dbConfig.setAllowCreate(true);
+
+            database = environment.openDatabase(null, name, dbConfig);
+            constValue = new DatabaseEntry(new byte[1]);
         } catch (DatabaseException e) {
             throw new IllegalStateException(e);
         }
         System.err.println("Using BerkeleyDB datastorage @ " + name);
-    }
-
-    private void setup(String name) throws DatabaseException {
-        EnvironmentConfig config = new EnvironmentConfig();
-        config.setAllowCreate(true);
-
-        File file = new File(name);
-        boolean isCreated = file.mkdirs();
-        if (!isCreated) {
-            System.err.println("WARNING: " + name + " already exists, did you forget to remove previous DB?\n" +
-                    "WARNING: This might interfere with your results. Please proceed only if you know what you're doing.");
-        }
-        Environment environment = new Environment(file, config);
-        DatabaseConfig dbConfig = new DatabaseConfig();
-        dbConfig.setAllowCreate(true);
-
-        database = environment.openDatabase(null, name, dbConfig);
-
-        constValue = new DatabaseEntry(new byte[1]);
     }
 
     @Override

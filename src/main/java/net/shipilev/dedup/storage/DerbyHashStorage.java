@@ -18,27 +18,22 @@ package net.shipilev.dedup.storage;
 import java.sql.*;
 
 public class DerbyHashStorage implements HashStorage {
-    private Connection connection;
-    private PreparedStatement insertStmt;
+    private final PreparedStatement insertStmt;
 
     public DerbyHashStorage(String dbName) {
         try {
-            create(dbName);
+            Class.forName("org.apache.derby.jdbc.EmbeddedDriver").newInstance();
+            Connection connection = DriverManager.getConnection("jdbc:derby:" + dbName + ";create=true");
+
+            Statement statement = connection.createStatement();
+            statement.execute("CREATE TABLE hashes(hash CHAR(254) FOR BIT DATA)");
+            statement.execute("CREATE UNIQUE INDEX hashI ON hashes(hash)");
+
+            insertStmt = connection.prepareStatement("INSERT INTO hashes(hash) VALUES(?)");
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
         System.err.println("Using Derby datastorage @ " + dbName);
-    }
-
-    private void create(String dbName) throws ClassNotFoundException, IllegalAccessException, InstantiationException, SQLException {
-        Class.forName("org.apache.derby.jdbc.EmbeddedDriver").newInstance();
-        connection = DriverManager.getConnection("jdbc:derby:" + dbName + ";create=true");
-
-        Statement statement = connection.createStatement();
-        statement.execute("CREATE TABLE hashes(hash CHAR(254) FOR BIT DATA)");
-        statement.execute("CREATE UNIQUE INDEX hashI ON hashes(hash)");
-
-        insertStmt = connection.prepareStatement("INSERT INTO hashes(hash) VALUES(?)");
     }
 
     @Override

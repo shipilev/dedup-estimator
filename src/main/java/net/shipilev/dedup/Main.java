@@ -18,10 +18,10 @@ package net.shipilev.dedup;
 import net.shipilev.dedup.storage.*;
 
 import java.io.File;
-import java.io.IOException;
-import java.security.DigestException;
-import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Main {
 
@@ -37,7 +37,7 @@ public class Main {
 
     private long firstPoll;
 
-    public static void main(String[] args) throws NoSuchAlgorithmException, DigestException, InterruptedException, IOException {
+    public static void main(String[] args) {
         String path = ".";
         if (args.length > 0) {
             path = args[0];
@@ -65,7 +65,7 @@ public class Main {
         }
     }
 
-    private void run(String path) throws InterruptedException, IOException {
+    private void run(String path) {
         createStorages();
 
         System.err.println("Running with " + THREADS + " threads");

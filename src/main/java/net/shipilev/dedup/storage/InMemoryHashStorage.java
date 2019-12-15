@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class InMemoryHashStorage implements HashStorage {
 
-    private final Set<ByteArrayWrapper> storage = Collections.newSetFromMap(new ConcurrentHashMap<ByteArrayWrapper, Boolean>());
+    private final Set<ByteArrayWrapper> storage = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     public InMemoryHashStorage() {
         System.err.println("Using InMemory datastorage, ConcurrentHashMap-based");

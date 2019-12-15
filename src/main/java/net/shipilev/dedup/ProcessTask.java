@@ -20,7 +20,8 @@ import net.jpountz.lz4.LZ4Factory;
 import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
