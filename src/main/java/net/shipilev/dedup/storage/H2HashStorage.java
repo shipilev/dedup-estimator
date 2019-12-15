@@ -15,28 +15,21 @@
  */
 package net.shipilev.dedup.storage;
 
-import com.mchange.v2.c3p0.DataSources;
+import org.h2.jdbcx.JdbcConnectionPool;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 
 public class H2HashStorage implements HashStorage {
-    private final DataSource datasource;
+    private final JdbcConnectionPool cp;
 
     public H2HashStorage(String dbName) {
         try {
-            Class.forName("org.h2.Driver").newInstance();
+            cp = JdbcConnectionPool.
+                    create("jdbc:h2:./" + dbName + ";create=true;COMPRESS_LOB=NO;MAX_LENGTH_INPLACE_LOB=256;CACHE_SIZE=512000", "sa", "sa");
 
-            DataSource ds = DataSources.unpooledDataSource(
-                    "jdbc:h2:" + dbName + ";create=true;MULTI_THREADED=1;COMPRESS_LOB=NO;MAX_LENGTH_INPLACE_LOB=256;CACHE_SIZE=512000",
-                    "app",
-                    "");
-            datasource = DataSources.pooledDataSource(ds);
+            Connection conn = cp.getConnection();
 
-            Statement statement = datasource.getConnection().createStatement();
+            Statement statement = conn.createStatement();
             statement.execute("CREATE TABLE hashes(hash BINARY(256))");
             statement.execute("CREATE UNIQUE INDEX hashI ON hashes(hash)");
         } catch (Exception e) {
@@ -47,7 +40,7 @@ public class H2HashStorage implements HashStorage {
 
     @Override
     public boolean add(byte[] data) {
-        try (Connection connection = datasource.getConnection()) {
+        try (Connection connection = cp.getConnection()) {
             PreparedStatement insertStmt = connection.prepareStatement("INSERT INTO hashes(hash) VALUES(?)");
             insertStmt.setBytes(1, data);
             insertStmt.executeUpdate();
