@@ -30,7 +30,7 @@ public class ProcessTask implements Runnable {
 
     private static final ThreadLocal<MessageDigest> MDS;
     private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
-    private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE);
+    private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE*1024);
     private static final ThreadLocalByteArray COMP_BUFS = new ThreadLocalByteArray(MAX_COMP_LEN);
     private static final ThreadLocalByteArray READ_BUFS;
 
@@ -38,7 +38,7 @@ public class ProcessTask implements Runnable {
         final int TARGET_SIZE = 1 << 20; // 1 M per thread
         int size = 1;
         for (int mult = 0; (mult < 20) && (size < TARGET_SIZE); mult++) {
-            size = Main.BLOCK_SIZE * (1 << mult);
+            size = Main.BLOCK_SIZE * 1024 * (1 << mult);
         }
         READ_BUFS = new ThreadLocalByteArray(size);
 

@@ -33,7 +33,7 @@ public class Main {
     static final String STORAGE = System.getProperty("storage", "inmemory");
     static final String HASH = System.getProperty("hash", "SHA-256");
     static final int QUEUE_SIZE = Integer.getInteger("queueSize", 1000 * 1000);
-    static final int BLOCK_SIZE = Integer.getInteger("blockSize", 4096);
+    static final int BLOCK_SIZE = Integer.getInteger("blockSize", 128);
     static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors() - 1);
     static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
 
@@ -76,7 +76,7 @@ public class Main {
         createStorages();
 
         System.err.println("Running with " + THREADS + " threads");
-        System.err.println("Using " + BLOCK_SIZE + "-byte blocks");
+        System.err.println("Using " + BLOCK_SIZE + " KB blocks");
 
         ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(this::printProgress, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
@@ -119,7 +119,7 @@ public class Main {
         executor.shutdownNow();
 
         System.err.println("FINAL RESULT:");
-        System.err.println(path + ", using " + BLOCK_SIZE + "-byte blocks");
+        System.err.println(path + ", using " + BLOCK_SIZE + " KB blocks");
         printProgress();
     }
 
