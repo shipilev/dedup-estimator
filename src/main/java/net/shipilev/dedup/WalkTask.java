@@ -46,6 +46,7 @@ public class WalkTask extends RecursiveAction {
                     continue;
                 }
                 if (Files.isDirectory(p)) {
+                    counters.queuedDirs.incrementAndGet();
                     tasks.add(new WalkTask(p, hashes, counters));
                 }
                 if (Files.isRegularFile(p)) {
@@ -55,6 +56,7 @@ public class WalkTask extends RecursiveAction {
                 }
             }
             ForkJoinTask.invokeAll(tasks);
+            counters.processedDirs.incrementAndGet();
         } catch (IOException e) {
             e.printStackTrace();
         }
