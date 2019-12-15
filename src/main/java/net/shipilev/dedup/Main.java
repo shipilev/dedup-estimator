@@ -105,7 +105,7 @@ public class Main {
         final int M = 1024 * 1024;
         final int G = 1024 * 1024 * 1024;
 
-        System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d dirs, %d/%d files, %d/%d MB, ETA: %,ds\n",
+        System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d dirs, %d/%d files, %d/%d MB\n",
                 (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 processedDirs,
@@ -113,8 +113,7 @@ public class Main {
                 processedFiles,
                 queuedFiles,
                 inputData / M,
-                queuedData / M,
-                TimeUnit.NANOSECONDS.toSeconds((System.nanoTime() - firstPoll) / inputData * (queuedData - inputData))
+                queuedData / M
         );
 
         System.err.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
