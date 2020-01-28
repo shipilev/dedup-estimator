@@ -87,6 +87,7 @@ public class ProcessTask extends RecursiveAction {
                     inputData += size;
                     compressedData += compLen;
 
+                    md.reset();
                     md.update(readBuf, start, size);
                     if (hashes.add(md.digest())) {
                         dedupData += size;
