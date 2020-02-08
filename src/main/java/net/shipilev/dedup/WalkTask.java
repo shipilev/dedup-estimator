@@ -18,6 +18,7 @@ package net.shipilev.dedup;
 import net.shipilev.dedup.storage.HashStorage;
 
 import java.io.IOException;
+import java.nio.file.LinkOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -43,7 +44,7 @@ public class WalkTask extends RecursiveAction {
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
             List<ForkJoinTask<?>> tasks = new ArrayList<>();
             for (Path p : ds) {
-                BasicFileAttributes bfa = Files.readAttributes(p, BasicFileAttributes.class);
+                BasicFileAttributes bfa = Files.readAttributes(p, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                 if (bfa.isSymbolicLink()) {
                     continue;
                 }
