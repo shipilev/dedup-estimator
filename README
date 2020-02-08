@@ -16,20 +16,18 @@ Build for source:
  $ mvn clean install
  $ java -jar target/dedup.jar <path>
 
-Binary builds are available here:
- https://builds.shipilev.net/dedup-estimator/
-
 Sample output:
 --------------------------------------------------------------------
 
-/home/shade/trunks/, using 4096-byte blocks
-Running at 1670.28 MB/sec (5872.08 GB/hour), 2566030/2566030 files, 61178/61178 MB, ETA: 0s
-COMPRESS:       1.278x increase, 61,178 MB --(block-compress)--> 47,878 MB
-DEDUP:          1.318x increase, 61,178 MB ------(dedup)-------> 46,406 MB
-DEDUP+COMPRESS: 1.613x increase, 61,178 MB ------(dedup)-------> 46,406 MB --(block-compress)--> 37,938 MB
+/home/buildbot/worker/, using 128 KB blocks
+Running at 962.73 MB/sec (3384.62 GB/hour), 1625177/1625176 dirs, 7725059/7725059 files, 123810/123810 MB
+COMPRESS:       1.858x increase, 123,810 MB --(block-compress)--> 66,642 MB
+DEDUP:          1.806x increase, 123,810 MB ------(dedup)-------> 68,569 MB
+DEDUP+COMPRESS: 3.890x increase, 123,810 MB ------(dedup)-------> 68,569 MB --(block-compress)--> 31,831 MB
 
-The numbers above are from file cache. Actual performance might be lower,
-especially when slower disks are used.
+The numbers above are from the decently fast SSD and busy build node.
+Actual performance depends on what bottlenecks first: the CPU compressing/hashing
+things, or the I/O that feeds it.
 
 Settings to play with:
 --------------------------------------------------------------------
@@ -37,8 +35,8 @@ Settings to play with:
  -Dthreads = # (default is #numCPU)
     Number of processing threads.
 
- -DblockSize = # (default is 4096)
-    Target filesystem block size.
+ -DblockSize = # (default is 128)
+    Target filesystem block size, KB
 
  -Dhash = # (default is "SHA-256")
     Hash to use for deduplication
@@ -55,5 +53,5 @@ Caveats:
 
 * Default mode uses in-memory hash storage, which can OOM on large
   enough datasets. Consider using off-heap storage for large FSes.
-  The rule of thumb: with 4K blocks, you will need ~1 GB of heap space
-  per 15 GB of dedup-ed FS size.
+  The rule of thumb: with 128K blocks, you will need ~1 GB of Java heap
+  space per 100 GB of dedup-ed FS size. Set larger -Xmx, if needed.
