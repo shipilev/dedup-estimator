@@ -26,32 +26,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ProcessTask extends RecursiveAction {
 
-    private static final ThreadLocal<MessageDigest> MDS;
-    private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
-    private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE * 1024);
-    private static final ThreadLocalByteArray COMP_BUFS = new ThreadLocalByteArray(MAX_COMP_LEN);
     private static final ThreadLocalByteArray READ_BUFS;
 
     static {
-        final int TARGET_SIZE = 1 << 20; // 1 M per thread
+        final int TARGET_SIZE = 1 << 22; // 4 M per read
         int size = 1;
         for (int mult = 0; (mult < 20) && (size < TARGET_SIZE); mult++) {
             size = Main.BLOCK_SIZE * 1024 * (1 << mult);
         }
         READ_BUFS = new ThreadLocalByteArray(size);
-
-        MDS = ThreadLocal.withInitial(() -> {
-            try {
-                return MessageDigest.getInstance(Main.HASH);
-            } catch (NoSuchAlgorithmException e) {
-                return null;
-            }
-        });
     }
 
     private final Path file;
@@ -66,13 +55,9 @@ public class ProcessTask extends RecursiveAction {
 
     @Override
     protected void compute() {
+        int blockSize = Main.BLOCK_SIZE * 1024;
+
         try (InputStream reader = Files.newInputStream(file)) {
-            byte[] readBuf = READ_BUFS.get();
-            byte[] compBlock = COMP_BUFS.get();
-
-            MessageDigest md = MDS.get();
-            LZ4Compressor lz4 = FACTORY.fastCompressor();
-
             AtomicLong inputData = counters.inputData;
             AtomicLong compressedData = counters.compressedData;
             AtomicLong dedupData = counters.dedupData;
@@ -80,19 +65,44 @@ public class ProcessTask extends RecursiveAction {
 
             counters.processedFiles.incrementAndGet();
 
+            byte[] readBuf = READ_BUFS.get();
+
             int read;
             while ((read = reader.read(readBuf)) != -1) {
-                for (int start = 0; start < read; start += Main.BLOCK_SIZE * 1024) {
-                    int size = Math.min(read - start, Main.BLOCK_SIZE * 1024);
+                int bufCount = (read % blockSize == 0) ?
+                        (read / blockSize) :
+                        (read / blockSize) + 1;
 
-                    int compLen = lz4.compress(readBuf, start, size, compBlock, 0, MAX_COMP_LEN);
+                int[] sizes = new int[bufCount];
+                CompressTask[] cts = new CompressTask[bufCount];
+                HashTask[] hts = new HashTask[bufCount];
+                RecursiveAction[] all = new RecursiveAction[bufCount*2];
+
+                for (int b = 0; b < bufCount; b++) {
+                    int start = b * blockSize;
+                    int size = Math.min(read - start, blockSize);
+                    sizes[b] = size;
+
+                    CompressTask ct = new CompressTask(readBuf, start, size);
+                    HashTask ht = new HashTask(readBuf, start, size);
+
+                    cts[b] = ct;
+                    hts[b] = ht;
+                    all[b] = ct;
+                    all[bufCount + b] = ht;
+                }
+
+                ForkJoinTask.invokeAll(all);
+
+                for (int b = 0; b < bufCount; b++) {
+                    int compLen = cts[b].compSize();
+                    byte[] hash = hts[b].digest();
+                    int size = sizes[b];
 
                     inputData.addAndGet(size);
                     compressedData.addAndGet(compLen);
 
-                    md.reset();
-                    md.update(readBuf, start, size);
-                    if (hashes.add(md.digest())) {
+                    if (hashes.add(hash)) {
                         dedupData.addAndGet(size);
                         dedupCompressData.addAndGet(compLen);
                     }
@@ -102,4 +112,67 @@ public class ProcessTask extends RecursiveAction {
             e.printStackTrace();
         }
     }
+
+    static class CompressTask extends RecursiveAction {
+        private static final LZ4Factory FACTORY = LZ4Factory.fastestInstance();
+        private static final int MAX_COMP_LEN = FACTORY.fastCompressor().maxCompressedLength(Main.BLOCK_SIZE * 1024);
+        private static final ThreadLocalByteArray COMP_BUFS = new ThreadLocalByteArray(MAX_COMP_LEN);
+
+        private final byte[] buf;
+        private final int start;
+        private final int size;
+        int compSize;
+
+        public CompressTask(byte[] buf, int start, int size) {
+            this.buf = buf;
+            this.start = start;
+            this.size = size;
+        }
+
+        @Override
+        protected void compute() {
+            LZ4Compressor lz4 = FACTORY.fastCompressor();
+            byte[] compBlock = COMP_BUFS.get();
+            compSize = lz4.compress(buf, start, size, compBlock, 0, MAX_COMP_LEN);
+        }
+
+        public int compSize() {
+            return compSize;
+        }
+    }
+
+    static class HashTask extends RecursiveAction {
+        private static final ThreadLocal<MessageDigest> MDS =
+                ThreadLocal.withInitial(() -> {
+                    try {
+                        return MessageDigest.getInstance(Main.HASH);
+                    } catch (NoSuchAlgorithmException e) {
+                        return null;
+                    }
+                });
+
+        private final byte[] buf;
+        private final int start;
+        private final int size;
+        byte[] digest;
+
+        public HashTask(byte[] buf, int start, int size) {
+            this.buf = buf;
+            this.start = start;
+            this.size = size;
+        }
+
+        @Override
+        protected void compute() {
+            MessageDigest md = MDS.get();
+            md.reset();
+            md.update(buf, start, size);
+            digest = md.digest();
+        }
+
+        public byte[] digest() {
+            return digest;
+        }
+    }
+
 }
