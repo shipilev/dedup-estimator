@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ProcessTask extends RecursiveAction {
 
@@ -72,35 +73,31 @@ public class ProcessTask extends RecursiveAction {
             MessageDigest md = MDS.get();
             LZ4Compressor lz4 = FACTORY.fastCompressor();
 
+            AtomicLong inputData = counters.inputData;
+            AtomicLong compressedData = counters.compressedData;
+            AtomicLong dedupData = counters.dedupData;
+            AtomicLong dedupCompressData = counters.dedupCompressData;
+
+            counters.processedFiles.incrementAndGet();
+
             int read;
             while ((read = reader.read(readBuf)) != -1) {
-                int inputData = 0;
-                int compressedData = 0;
-                int dedupData = 0;
-                int dedupCompressData = 0;
-
                 for (int start = 0; start < read; start += Main.BLOCK_SIZE * 1024) {
                     int size = Math.min(read - start, Main.BLOCK_SIZE * 1024);
 
                     int compLen = lz4.compress(readBuf, start, size, compBlock, 0, MAX_COMP_LEN);
 
-                    inputData += size;
-                    compressedData += compLen;
+                    inputData.addAndGet(size);
+                    compressedData.addAndGet(compLen);
 
                     md.reset();
                     md.update(readBuf, start, size);
                     if (hashes.add(md.digest())) {
-                        dedupData += size;
-                        dedupCompressData += compLen;
+                        dedupData.addAndGet(size);
+                        dedupCompressData.addAndGet(compLen);
                     }
                 }
-
-                counters.inputData.addAndGet(inputData);
-                counters.compressedData.addAndGet(compressedData);
-                counters.dedupData.addAndGet(dedupData);
-                counters.dedupCompressData.addAndGet(dedupCompressData);
             }
-            counters.processedFiles.incrementAndGet();
         } catch (IOException e) {
             e.printStackTrace();
         }

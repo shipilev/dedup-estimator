@@ -102,12 +102,14 @@ public class Main {
         if (dedupData == 0)         dedupData = 1;
         if (dedupCompressData == 0) dedupCompressData = 1;
 
-        final int M = 1024 * 1024;
-        final int G = 1024 * 1024 * 1024;
+        final int K = 1024;
+        final int M = K * 1024;
+        final int G = M * 1024;
+        final long T = G * 1024L;
 
-        System.err.printf("Running at %5.2f MB/sec (%5.2f GB/hour), %d/%d dirs, %d/%d files, %d/%d MB\n",
+        System.err.printf("Running at %5.2f MB/sec (%5.2f TB/hour), %d/%d dirs, %d/%d files, %d/%d MB\n",
                 (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
-                (inputData * 3600.0 / G * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
+                (inputData * 3600.0 / T * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 processedDirs,
                 queuedDirs,
                 processedFiles,
