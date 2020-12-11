@@ -21,8 +21,7 @@ import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
+import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -57,7 +56,7 @@ public class ProcessTask extends RecursiveAction {
     protected void compute() {
         int blockSize = Main.BLOCK_SIZE * 1024;
 
-        try (InputStream reader = Files.newInputStream(file)) {
+        try (RandomAccessFile raf = new RandomAccessFile(file.toString(), "r")) {
             AtomicLong inputData = counters.inputData;
             AtomicLong compressedData = counters.compressedData;
             AtomicLong dedupData = counters.dedupData;
@@ -68,7 +67,7 @@ public class ProcessTask extends RecursiveAction {
             byte[] readBuf = READ_BUFS.get();
 
             int read;
-            while ((read = reader.read(readBuf)) != -1) {
+            while ((read = raf.read(readBuf)) != -1) {
                 int bufCount = (read % blockSize == 0) ?
                         (read / blockSize) :
                         (read / blockSize) + 1;
