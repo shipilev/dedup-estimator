@@ -102,7 +102,7 @@ public class ProcessTask extends RecursiveAction {
                     inputData.addAndGet(size);
                     compressedData.addAndGet(compLen);
 
-                    if (hashes.add(hash)) {
+                    if (hash != null && hashes.add(hash)) {
                         dedupData.addAndGet(size);
                         dedupCompressData.addAndGet(compLen);
                     }
@@ -131,9 +131,13 @@ public class ProcessTask extends RecursiveAction {
 
         @Override
         protected void compute() {
-            LZ4Compressor lz4 = FACTORY.fastCompressor();
-            byte[] compBlock = COMP_BUFS.get();
-            compSize = lz4.compress(buf, start, size, compBlock, 0, MAX_COMP_LEN);
+            if (Main.DO_COMPRESS) {
+                LZ4Compressor lz4 = FACTORY.fastCompressor();
+                byte[] compBlock = COMP_BUFS.get();
+                compSize = lz4.compress(buf, start, size, compBlock, 0, MAX_COMP_LEN);
+            } else {
+                compSize = size;
+            }
         }
 
         public int compSize() {
@@ -164,10 +168,12 @@ public class ProcessTask extends RecursiveAction {
 
         @Override
         protected void compute() {
-            MessageDigest md = MDS.get();
-            md.reset();
-            md.update(buf, start, size);
-            digest = md.digest();
+            if (Main.DO_DEDUP) {
+                MessageDigest md = MDS.get();
+                md.reset();
+                md.update(buf, start, size);
+                digest = md.digest();
+            }
         }
 
         public byte[] digest() {

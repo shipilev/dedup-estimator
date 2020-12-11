@@ -31,6 +31,9 @@ public class Main {
     static final int THREADS = Integer.getInteger("threads", Runtime.getRuntime().availableProcessors());
     static final long POLL_INTERVAL_SEC = Integer.getInteger("pollInterval", 1);
 
+    static final boolean DO_COMPRESS = Boolean.parseBoolean(System.getProperty("doCompress", "true"));
+    static final boolean DO_DEDUP = Boolean.parseBoolean(System.getProperty("doDedup", "true"));
+
     private final Counters counters = new Counters();
 
     private HashStorage hashes;
@@ -118,24 +121,30 @@ public class Main {
                 queuedData / M
         );
 
-        System.err.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
-                inputData * 1.0 / compressedData,
-                inputData / M,
-                compressedData / M
-        );
+        if (DO_COMPRESS) {
+            System.err.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
+                    inputData * 1.0 / compressedData,
+                    inputData / M,
+                    compressedData / M
+            );
+        }
 
-        System.err.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",
-                inputData * 1.0 / dedupData,
-                inputData / M,
-                dedupData / M
-        );
+        if (DO_DEDUP) {
+            System.err.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",
+                    inputData * 1.0 / dedupData,
+                    inputData / M,
+                    dedupData / M
+            );
+        }
 
-        System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d MB ------(dedup)-------> %,d MB --(block-compress)--> %,d MB\n",
-                inputData * 1.0 / dedupCompressData,
-                inputData / M,
-                dedupData / M,
-                dedupCompressData / M
-        );
+        if (DO_COMPRESS && DO_DEDUP) {
+            System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d MB ------(dedup)-------> %,d MB --(block-compress)--> %,d MB\n",
+                    inputData * 1.0 / dedupCompressData,
+                    inputData / M,
+                    dedupData / M,
+                    dedupCompressData / M
+            );
+        }
 
         System.err.println();
     }
