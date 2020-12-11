@@ -71,8 +71,8 @@ public class Main {
     private void run(String path) {
         createStorages();
 
-        System.err.println("Running with " + THREADS + " threads");
-        System.err.println("Using " + BLOCK_SIZE + " KB blocks");
+        System.out.println("Running with " + THREADS + " threads");
+        System.out.println("Using " + BLOCK_SIZE + " KB blocks");
 
         ScheduledExecutorService poller = Executors.newScheduledThreadPool(1);
         poller.scheduleAtFixedRate(this::printProgress, POLL_INTERVAL_SEC, POLL_INTERVAL_SEC, TimeUnit.SECONDS);
@@ -83,8 +83,8 @@ public class Main {
 
         poller.shutdownNow();
 
-        System.err.println("FINAL RESULT:");
-        System.err.println(path + ", using " + BLOCK_SIZE + " KB blocks");
+        System.out.println("FINAL RESULT:");
+        System.out.println(path + ", using " + BLOCK_SIZE + " KB blocks");
         printProgress();
     }
 
@@ -110,7 +110,7 @@ public class Main {
         final int G = M * 1024;
         final long T = G * 1024L;
 
-        System.err.printf("Running at %5.2f MB/sec (%5.2f TB/hour), %d/%d dirs, %d/%d files, %d/%d MB\n",
+        System.out.printf("Running at %5.2f MB/sec (%5.2f TB/hour), %d/%d dirs, %d/%d files, %d/%d MB\n",
                 (inputData * 1.0 / M * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 (inputData * 3600.0 / T * TimeUnit.SECONDS.toNanos(1)) / (System.nanoTime() - firstPoll + 1),
                 processedDirs,
@@ -122,7 +122,7 @@ public class Main {
         );
 
         if (DO_COMPRESS) {
-            System.err.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
+            System.out.printf("COMPRESS:       %5.3fx increase, %,d MB --(block-compress)--> %,d MB\n",
                     inputData * 1.0 / compressedData,
                     inputData / M,
                     compressedData / M
@@ -130,7 +130,7 @@ public class Main {
         }
 
         if (DO_DEDUP) {
-            System.err.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",
+            System.out.printf("DEDUP:          %5.3fx increase, %,d MB ------(dedup)-------> %,d MB\n",
                     inputData * 1.0 / dedupData,
                     inputData / M,
                     dedupData / M
@@ -138,7 +138,7 @@ public class Main {
         }
 
         if (DO_COMPRESS && DO_DEDUP) {
-            System.err.printf("DEDUP+COMPRESS: %5.3fx increase, %,d MB ------(dedup)-------> %,d MB --(block-compress)--> %,d MB\n",
+            System.out.printf("DEDUP+COMPRESS: %5.3fx increase, %,d MB ------(dedup)-------> %,d MB --(block-compress)--> %,d MB\n",
                     inputData * 1.0 / dedupCompressData,
                     inputData / M,
                     dedupData / M,
@@ -146,7 +146,8 @@ public class Main {
             );
         }
 
-        System.err.println();
+        System.out.println();
+        System.out.flush();
     }
 
 
