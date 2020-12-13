@@ -20,8 +20,8 @@ import net.jpountz.lz4.LZ4Factory;
 import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,7 +34,7 @@ public class ProcessTask extends RecursiveAction {
     private static final ThreadLocalByteArray READ_BUFS;
 
     static {
-        final int TARGET_SIZE = 1 << 22; // 4 M per read
+        final int TARGET_SIZE = 1 << 20; // 1 M per read
         int size = 1;
         for (int mult = 0; (mult < 20) && (size < TARGET_SIZE); mult++) {
             size = Main.BLOCK_SIZE * 1024 * (1 << mult);
@@ -56,7 +56,7 @@ public class ProcessTask extends RecursiveAction {
     protected void compute() {
         int blockSize = Main.BLOCK_SIZE * 1024;
 
-        try (RandomAccessFile raf = new RandomAccessFile(file.toString(), "r")) {
+        try (FileInputStream fis = new FileInputStream(file.toFile())) {
             AtomicLong inputData = counters.inputData;
             AtomicLong compressedData = counters.compressedData;
             AtomicLong dedupData = counters.dedupData;
@@ -67,7 +67,7 @@ public class ProcessTask extends RecursiveAction {
             byte[] readBuf = READ_BUFS.get();
 
             int read;
-            while ((read = raf.read(readBuf)) != -1) {
+            while ((read = fis.read(readBuf)) != -1) {
                 int bufCount = (read % blockSize == 0) ?
                         (read / blockSize) :
                         (read / blockSize) + 1;
