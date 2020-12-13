@@ -20,6 +20,7 @@ import net.jpountz.lz4.LZ4Factory;
 import net.shipilev.dedup.storage.HashStorage;
 import net.shipilev.dedup.streams.ThreadLocalByteArray;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -27,27 +28,37 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveAction;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ProcessTask extends RecursiveAction {
 
-    private static final ThreadLocalByteArray READ_BUFS;
+    private static final int TARGET_SMALL_SIZE = 1 << 17; //  128K per read
+    private static final int TARGET_LARGE_SIZE = 1 << 20; // 1024K per read
 
-    static {
-        final int TARGET_SIZE = 1 << 20; // 1 M per read
+    private static final ThreadLocalByteArray SMALL_READ_BUFS = new ThreadLocalByteArray(selectBufferSize(TARGET_SMALL_SIZE));
+    private static final ThreadLocalByteArray LARGE_READ_BUFS = new ThreadLocalByteArray(selectBufferSize(TARGET_LARGE_SIZE));
+
+    private static int selectBufferSize(int target) {
         int size = 1;
-        for (int mult = 0; (mult < 20) && (size < TARGET_SIZE); mult++) {
+        for (int mult = 0; (mult < 20) && (size < target); mult++) {
             size = Main.BLOCK_SIZE * 1024 * (1 << mult);
         }
-        READ_BUFS = new ThreadLocalByteArray(size);
+        return size;
     }
 
-    private final Path file;
+    private static byte[] selectBuffer(long size) {
+        if (size >= TARGET_LARGE_SIZE) {
+            return LARGE_READ_BUFS.get();
+        } else {
+            return SMALL_READ_BUFS.get();
+        }
+    }
+
+    private final Path path;
     private final HashStorage hashes;
     private final Counters counters;
 
-    public ProcessTask(Path file, HashStorage hashes, Counters counters) {
-        this.file = file;
+    public ProcessTask(Path path, HashStorage hashes, Counters counters) {
+        this.path = path;
         this.hashes = hashes;
         this.counters = counters;
     }
@@ -56,15 +67,9 @@ public class ProcessTask extends RecursiveAction {
     protected void compute() {
         int blockSize = Main.BLOCK_SIZE * 1024;
 
-        try (FileInputStream fis = new FileInputStream(file.toFile())) {
-            AtomicLong inputData = counters.inputData;
-            AtomicLong compressedData = counters.compressedData;
-            AtomicLong dedupData = counters.dedupData;
-            AtomicLong dedupCompressData = counters.dedupCompressData;
-
-            counters.processedFiles.incrementAndGet();
-
-            byte[] readBuf = READ_BUFS.get();
+        File file = path.toFile();
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] readBuf = selectBuffer(file.length());
 
             int read;
             while ((read = fis.read(readBuf)) != -1) {
@@ -98,15 +103,17 @@ public class ProcessTask extends RecursiveAction {
                     byte[] hash = hts[b].digest();
                     int size = sizes[b];
 
-                    inputData.addAndGet(size);
-                    compressedData.addAndGet(compLen);
+                    counters.inputData.addAndGet(size);
+                    counters.compressedData.addAndGet(compLen);
 
                     if (hash != null && hashes.add(hash)) {
-                        dedupData.addAndGet(size);
-                        dedupCompressData.addAndGet(compLen);
+                        counters.dedupData.addAndGet(size);
+                        counters.dedupCompressData.addAndGet(compLen);
                     }
                 }
             }
+
+            counters.processedFiles.incrementAndGet();
         } catch (IOException e) {
             e.printStackTrace();
         }
