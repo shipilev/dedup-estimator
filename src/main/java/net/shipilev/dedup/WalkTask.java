@@ -50,15 +50,17 @@ public class WalkTask extends RecursiveAction {
                 }
                 if (bfa.isDirectory()) {
                     counters.queuedDirs.incrementAndGet();
-                    tasks.add(new WalkTask(p, hashes, counters));
+                    tasks.add(new WalkTask(p, hashes, counters).fork());
                 }
                 if (bfa.isRegularFile()) {
                     counters.queuedData.addAndGet(bfa.size());
                     counters.queuedFiles.incrementAndGet();
-                    tasks.add(new ProcessTask(p, hashes, counters));
+                    tasks.add(new ProcessTask(p, hashes, counters).fork());
                 }
             }
-            ForkJoinTask.invokeAll(tasks);
+            for (ForkJoinTask<?> task : tasks) {
+                task.join();
+            }
             counters.processedDirs.incrementAndGet();
         } catch (IOException e) {
             e.printStackTrace();

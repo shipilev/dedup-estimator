@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveAction;
 
 public class ProcessTask extends RecursiveAction {
@@ -80,31 +79,31 @@ public class ProcessTask extends RecursiveAction {
                 int[] sizes = new int[bufCount];
                 CompressTask[] cts = new CompressTask[bufCount];
                 HashTask[] hts = new HashTask[bufCount];
-                RecursiveAction[] all = new RecursiveAction[bufCount*2];
 
                 for (int b = 0; b < bufCount; b++) {
                     int start = b * blockSize;
                     int size = Math.min(read - start, blockSize);
+
+                    cts[b] = new CompressTask(readBuf, start, size);
+                    cts[b].fork();
+
+                    hts[b] = new HashTask(readBuf, start, size);
+                    hts[b].fork();
+
                     sizes[b] = size;
-
-                    CompressTask ct = new CompressTask(readBuf, start, size);
-                    HashTask ht = new HashTask(readBuf, start, size);
-
-                    cts[b] = ct;
-                    hts[b] = ht;
-                    all[b] = ct;
-                    all[bufCount + b] = ht;
                 }
 
-                ForkJoinTask.invokeAll(all);
-
                 for (int b = 0; b < bufCount; b++) {
-                    int compLen = cts[b].compSize();
-                    byte[] hash = hts[b].digest();
                     int size = sizes[b];
-
                     counters.inputData.addAndGet(size);
+
+                    cts[b].join();
+                    int compLen = cts[b].compSize();
+
                     counters.compressedData.addAndGet(compLen);
+
+                    hts[b].join();
+                    byte[] hash = hts[b].digest();
 
                     if (hash != null && hashes.add(hash)) {
                         counters.dedupData.addAndGet(size);
